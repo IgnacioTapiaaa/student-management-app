@@ -1,0 +1,41 @@
+<mat-toolbar color="primary" class="app-toolbar">
+  <button mat-icon-button (click)="toggleSidenav()" aria-label="Toggle sidenav">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <span appFontSize="20" class="app-title">Student Management System</span>
+  <span class="spacer"></span>
+  <button mat-icon-button aria-label="User menu">
+    <mat-icon>account_circle</mat-icon>
+  </button>
+</mat-toolbar>
+
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav
+    #sidenav
+    mode="side"
+    [opened]="sidenavOpened()"
+    class="app-sidenav">
+    <mat-nav-list>
+      <a mat-list-item>
+        <mat-icon matListItemIcon>dashboard</mat-icon>
+        <span matListItemTitle>Dashboard</span>
+      </a>
+      <a mat-list-item class="active">
+        <mat-icon matListItemIcon>people</mat-icon>
+        <span matListItemTitle>Students</span>
+      </a>
+      <a mat-list-item>
+        <mat-icon matListItemIcon>assessment</mat-icon>
+        <span matListItemTitle>Reports</span>
+      </a>
+      <a mat-list-item>
+        <mat-icon matListItemIcon>settings</mat-icon>
+        <span matListItemTitle>Settings</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="main-content">
+    <app-students></app-students>
+  </mat-sidenav-content>
+</mat-sidenav-container>

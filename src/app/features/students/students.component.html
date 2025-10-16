@@ -1,0 +1,191 @@
+<div class="students-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <h1 appFontSize="20" class="page-title">Student Management</h1>
+    <p class="page-subtitle">Add, edit, and manage students</p>
+  </div>
+
+  <!-- Student Form Card -->
+  <mat-card class="form-card mat-elevation-z2">
+    <mat-card-header>
+      <mat-card-title>{{ formTitle() }}</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="studentForm" (ngSubmit)="onSubmit()">
+        <div class="form-row">
+          <!-- First Name -->
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>First Name</mat-label>
+            <input
+              matInput
+              formControlName="firstName"
+              placeholder="Enter first name"
+              autocomplete="given-name">
+            <mat-error *ngIf="studentForm.controls.firstName.invalid">
+              {{ getErrorMessage('firstName') }}
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Last Name -->
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>Last Name</mat-label>
+            <input
+              matInput
+              formControlName="lastName"
+              placeholder="Enter last name"
+              autocomplete="family-name">
+            <mat-error *ngIf="studentForm.controls.lastName.invalid">
+              {{ getErrorMessage('lastName') }}
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <!-- Age -->
+          <mat-form-field appearance="outline" class="form-field-small">
+            <mat-label>Age</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="age"
+              placeholder="Enter age"
+              min="10"
+              max="100">
+            <mat-error *ngIf="studentForm.controls.age.invalid">
+              {{ getErrorMessage('age') }}
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Email -->
+          <mat-form-field appearance="outline" class="form-field-large">
+            <mat-label>Email</mat-label>
+            <input
+              matInput
+              type="email"
+              formControlName="email"
+              placeholder="Enter email address"
+              autocomplete="email">
+            <mat-error *ngIf="studentForm.controls.email.invalid">
+              {{ getErrorMessage('email') }}
+            </mat-error>
+          </mat-form-field>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="onCancel()"
+            class="cancel-button">
+            Cancel
+          </button>
+          <button
+            mat-raised-button
+            color="primary"
+            type="submit"
+            [disabled]="studentForm.invalid"
+            class="submit-button">
+            {{ submitButtonText() }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Students Table Card -->
+  <mat-card class="table-card mat-elevation-z2">
+    <mat-card-header>
+      <mat-card-title>Students List</mat-card-title>
+      <mat-card-subtitle>
+        Total: {{ studentsService.totalStudents() }} students |
+        Average Age: {{ studentsService.averageAge() }} years
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <!-- Search Filter -->
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Search Students</mat-label>
+        <input
+          matInput
+          (keyup)="applyFilter($event)"
+          placeholder="Search by name or email"
+          #input>
+        <mat-icon matPrefix>search</mat-icon>
+      </mat-form-field>
+
+      <!-- Table -->
+      <div class="table-container">
+        <table mat-table [dataSource]="dataSource" matSort class="students-table">
+          <!-- ID Column -->
+          <ng-container matColumnDef="id">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header class="id-column">ID</th>
+            <td mat-cell *matCellDef="let student" class="id-column">{{ student.id }}</td>
+          </ng-container>
+
+          <!-- Full Name Column -->
+          <ng-container matColumnDef="fullName">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Full Name</th>
+            <td mat-cell *matCellDef="let student">{{ student | fullName }}</td>
+          </ng-container>
+
+          <!-- Age Column -->
+          <ng-container matColumnDef="age">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header class="age-column">Age</th>
+            <td mat-cell *matCellDef="let student" class="age-column">{{ student.age }}</td>
+          </ng-container>
+
+          <!-- Email Column -->
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Email</th>
+            <td mat-cell *matCellDef="let student">{{ student.email }}</td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="actions-column">Actions</th>
+            <td mat-cell *matCellDef="let student" class="actions-column">
+              <button
+                mat-icon-button
+                color="primary"
+                (click)="onEdit(student)"
+                aria-label="Edit student"
+                matTooltip="Edit">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                mat-icon-button
+                color="warn"
+                (click)="onDelete(student)"
+                aria-label="Delete student"
+                matTooltip="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: displayedColumns;"
+            class="table-row"></tr>
+
+          <!-- No Data Row -->
+          <tr class="mat-row" *matNoDataRow>
+            <td class="mat-cell no-data" [attr.colspan]="displayedColumns.length">
+              No students found
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Paginator -->
+      <mat-paginator
+        [pageSizeOptions]="[5, 10, 25]"
+        [pageSize]="5"
+        showFirstLastButtons
+        aria-label="Select page of students">
+      </mat-paginator>
+    </mat-card-content>
+  </mat-card>
+</div>
