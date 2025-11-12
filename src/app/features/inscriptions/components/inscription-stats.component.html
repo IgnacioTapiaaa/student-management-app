@@ -1,0 +1,49 @@
+<div class="stats-container">
+  <mat-card class="stat-card mat-elevation-z2">
+    <mat-card-content>
+      <div class="stat-content">
+        <mat-icon class="stat-icon total-icon">assignment</mat-icon>
+        <div class="stat-info">
+          <div class="stat-label">Total Inscriptions</div>
+          <div class="stat-value total-value">{{ totalInscriptions }}</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card mat-elevation-z2">
+    <mat-card-content>
+      <div class="stat-content">
+        <mat-icon class="stat-icon active-icon">check_circle</mat-icon>
+        <div class="stat-info">
+          <div class="stat-label">Active</div>
+          <div class="stat-value active-value">{{ activeInscriptions }}</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card mat-elevation-z2">
+    <mat-card-content>
+      <div class="stat-content">
+        <mat-icon class="stat-icon completed-icon">verified</mat-icon>
+        <div class="stat-info">
+          <div class="stat-label">Completed</div>
+          <div class="stat-value completed-value">{{ completedInscriptions }}</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card mat-elevation-z2">
+    <mat-card-content>
+      <div class="stat-content">
+        <mat-icon class="stat-icon cancelled-icon">cancel</mat-icon>
+        <div class="stat-info">
+          <div class="stat-label">Cancelled</div>
+          <div class="stat-value cancelled-value">{{ cancelledInscriptions }}</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

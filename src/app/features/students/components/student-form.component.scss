@@ -1,0 +1,64 @@
+.form-card {
+  margin-bottom: 24px;
+
+  mat-card-header {
+    margin-bottom: 16px;
+  }
+
+  mat-card-title {
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+.form-field {
+  flex: 1;
+}
+
+.form-field-small {
+  flex: 0 0 150px;
+
+  @media (max-width: 768px) {
+    flex: 1;
+  }
+}
+
+.form-field-large {
+  flex: 1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+
+  .cancel-button {
+    min-width: 100px;
+  }
+
+  .submit-button {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-card {
+    border-radius: 0;
+    margin-left: -24px;
+    margin-right: -24px;
+  }
+}

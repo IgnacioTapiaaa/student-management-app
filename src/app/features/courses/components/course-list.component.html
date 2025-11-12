@@ -1,0 +1,120 @@
+<mat-card class="table-card mat-elevation-z2">
+  <mat-card-header>
+    <mat-card-title>Courses List</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <!-- Search Filter -->
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Search Courses</mat-label>
+      <input
+        matInput
+        (keyup)="applyFilter($event)"
+        placeholder="Search by name, code, or instructor"
+        #input>
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table mat-table [dataSource]="dataSource" matSort class="courses-table">
+        <!-- ID Column -->
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="id-column">ID</th>
+          <td mat-cell *matCellDef="let course" class="id-column">{{ course.id }}</td>
+        </ng-container>
+
+        <!-- Name Column -->
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Course Name</th>
+          <td mat-cell *matCellDef="let course" class="name-cell">{{ course.name }}</td>
+        </ng-container>
+
+        <!-- Code Column -->
+        <ng-container matColumnDef="code">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="code-column">Code</th>
+          <td mat-cell *matCellDef="let course" class="code-column">
+            <span class="code-badge">{{ course.code }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Instructor Column -->
+        <ng-container matColumnDef="instructor">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Instructor</th>
+          <td mat-cell *matCellDef="let course">{{ course.instructor }}</td>
+        </ng-container>
+
+        <!-- Duration Column -->
+        <ng-container matColumnDef="duration">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="duration-column">Duration</th>
+          <td mat-cell *matCellDef="let course" class="duration-column">{{ course.duration }}h</td>
+        </ng-container>
+
+        <!-- Enrollment Column -->
+        <ng-container matColumnDef="enrollment">
+          <th mat-header-cell *matHeaderCellDef class="enrollment-column">Capacity/Enrolled</th>
+          <td mat-cell *matCellDef="let course" class="enrollment-column">
+            <div class="enrollment-info">
+              <span class="enrollment-text">{{ course.enrolled }}/{{ course.capacity }}</span>
+              <mat-progress-bar
+                mode="determinate"
+                [value]="getEnrollmentPercentage(course)"
+                [color]="getEnrollmentColor(course)"
+                class="enrollment-bar">
+              </mat-progress-bar>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Start Date Column -->
+        <ng-container matColumnDef="startDate">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="date-column">Start Date</th>
+          <td mat-cell *matCellDef="let course" class="date-column">{{ course.startDate | date:'shortDate' }}</td>
+        </ng-container>
+
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef class="actions-column">Actions</th>
+          <td mat-cell *matCellDef="let course" class="actions-column">
+            <button
+              mat-icon-button
+              color="primary"
+              (click)="onEdit(course)"
+              aria-label="Edit course"
+              matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              color="warn"
+              (click)="onDelete(course)"
+              aria-label="Delete course"
+              matTooltip="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: displayedColumns;"
+          class="table-row"></tr>
+
+        <!-- No Data Row -->
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell no-data" [attr.colspan]="displayedColumns.length">
+            No courses found
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Paginator -->
+    <mat-paginator
+      [pageSizeOptions]="[5, 10, 25]"
+      [pageSize]="5"
+      showFirstLastButtons
+      aria-label="Select page of courses">
+    </mat-paginator>
+  </mat-card-content>
+</mat-card>

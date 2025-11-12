@@ -16,19 +16,28 @@
     [opened]="sidenavOpened()"
     class="app-sidenav">
     <mat-nav-list>
-      <a mat-list-item>
-        <mat-icon matListItemIcon>dashboard</mat-icon>
-        <span matListItemTitle>Dashboard</span>
-      </a>
-      <a mat-list-item class="active">
+      <a mat-list-item routerLink="/students" routerLinkActive="active">
         <mat-icon matListItemIcon>people</mat-icon>
         <span matListItemTitle>Students</span>
       </a>
-      <a mat-list-item>
+      <a mat-list-item routerLink="/courses" routerLinkActive="active">
+        <mat-icon matListItemIcon>school</mat-icon>
+        <span matListItemTitle>Courses</span>
+      </a>
+      <a mat-list-item routerLink="/inscriptions" routerLinkActive="active">
+        <mat-icon matListItemIcon>assignment</mat-icon>
+        <span matListItemTitle>Inscriptions</span>
+      </a>
+      <mat-divider></mat-divider>
+      <a mat-list-item disabled>
+        <mat-icon matListItemIcon>dashboard</mat-icon>
+        <span matListItemTitle>Dashboard</span>
+      </a>
+      <a mat-list-item disabled>
         <mat-icon matListItemIcon>assessment</mat-icon>
         <span matListItemTitle>Reports</span>
       </a>
-      <a mat-list-item>
+      <a mat-list-item disabled>
         <mat-icon matListItemIcon>settings</mat-icon>
         <span matListItemTitle>Settings</span>
       </a>
@@ -36,6 +45,6 @@
   </mat-sidenav>
 
   <mat-sidenav-content class="main-content">
-    <app-students></app-students>
+    <router-outlet></router-outlet>
   </mat-sidenav-content>
 </mat-sidenav-container>

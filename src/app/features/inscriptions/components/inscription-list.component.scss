@@ -1,0 +1,134 @@
+.table-card {
+  mat-card-header {
+    margin-bottom: 16px;
+  }
+
+  mat-card-title {
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+.filter-field {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 16px;
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.inscriptions-table {
+  width: 100%;
+  background-color: white;
+
+  th {
+    background-color: #fafafa;
+    font-weight: 600;
+    color: #333;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .id-column {
+    width: 60px;
+    text-align: center;
+  }
+
+  .code-column {
+    width: 110px;
+    text-align: center;
+  }
+
+  .date-column {
+    width: 120px;
+  }
+
+  .status-column {
+    width: 120px;
+  }
+
+  .actions-column {
+    width: 150px;
+    text-align: center;
+  }
+
+  .student-name {
+    font-weight: 500;
+    color: #3f51b5;
+  }
+
+  .course-name {
+    font-weight: 500;
+  }
+
+  .code-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background-color: #e3f2fd;
+    color: #1976d2;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .table-row {
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: #f5f5f5;
+      cursor: pointer;
+    }
+
+    &:nth-child(even) {
+      background-color: #fafafa;
+
+      &:hover {
+        background-color: #f0f0f0;
+      }
+    }
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 32px 16px;
+    color: #666;
+    font-style: italic;
+  }
+}
+
+@media (max-width: 768px) {
+  .table-card {
+    border-radius: 0;
+    margin-left: -24px;
+    margin-right: -24px;
+  }
+
+  .inscriptions-table {
+    font-size: 14px;
+
+    .id-column {
+      width: 50px;
+    }
+
+    .code-column {
+      width: 90px;
+    }
+
+    .date-column {
+      width: 100px;
+    }
+
+    .status-column {
+      width: 100px;
+    }
+
+    .actions-column {
+      width: 130px;
+    }
+  }
+}

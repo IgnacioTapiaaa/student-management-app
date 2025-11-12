@@ -23,21 +23,29 @@ export class StudentsService {
   private nextId = 6;
 
   addStudent(student: CreateStudent): Student {
+    console.log('[StudentsService] addStudent called with:', student);
     const newStudent: Student = {
       ...student,
       id: this.nextId++
     };
+    console.log('[StudentsService] New student object:', newStudent);
 
-    this.studentsSignal.update(students => [...students, newStudent]);
+    this.studentsSignal.update(students => {
+      const updated = [...students, newStudent];
+      console.log('[StudentsService] Signal updated. Total students:', updated.length);
+      return updated;
+    });
 
     return newStudent;
   }
 
   updateStudent(id: number, changes: UpdateStudent): boolean {
+    console.log('[StudentsService] updateStudent called with ID:', id, 'Changes:', changes);
     const students = this.studentsSignal();
     const index = students.findIndex(s => s.id === id);
 
     if (index === -1) {
+      console.log('[StudentsService] Student not found with ID:', id);
       return false;
     }
 
@@ -48,6 +56,7 @@ export class StudentsService {
           : student
       )
     );
+    console.log('[StudentsService] Student updated successfully');
 
     return true;
   }

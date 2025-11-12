@@ -1,0 +1,86 @@
+<mat-card class="form-card mat-elevation-z2">
+  <mat-card-header>
+    <mat-card-title>{{ formTitle }}</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <form [formGroup]="studentForm" (ngSubmit)="onSubmit()">
+      <div class="form-row">
+        <!-- First Name -->
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>First Name</mat-label>
+          <input
+            matInput
+            formControlName="firstName"
+            placeholder="Enter first name"
+            autocomplete="given-name">
+          <mat-error *ngIf="studentForm.controls.firstName.invalid">
+            {{ getErrorMessage('firstName') }}
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Last Name -->
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Last Name</mat-label>
+          <input
+            matInput
+            formControlName="lastName"
+            placeholder="Enter last name"
+            autocomplete="family-name">
+          <mat-error *ngIf="studentForm.controls.lastName.invalid">
+            {{ getErrorMessage('lastName') }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <!-- Age -->
+        <mat-form-field appearance="outline" class="form-field-small">
+          <mat-label>Age</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="age"
+            placeholder="Enter age"
+            min="10"
+            max="100">
+          <mat-error *ngIf="studentForm.controls.age.invalid">
+            {{ getErrorMessage('age') }}
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Email -->
+        <mat-form-field appearance="outline" class="form-field-large">
+          <mat-label>Email</mat-label>
+          <input
+            matInput
+            type="email"
+            formControlName="email"
+            placeholder="Enter email address"
+            autocomplete="email">
+          <mat-error *ngIf="studentForm.controls.email.invalid">
+            {{ getErrorMessage('email') }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="onCancel()"
+          class="cancel-button">
+          Cancel
+        </button>
+        <button
+          mat-raised-button
+          color="primary"
+          type="submit"
+          [disabled]="studentForm.invalid"
+          class="submit-button">
+          {{ submitButtonText }}
+        </button>
+      </div>
+    </form>
+  </mat-card-content>
+</mat-card>

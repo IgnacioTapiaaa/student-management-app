@@ -1,0 +1,119 @@
+<mat-card class="table-card mat-elevation-z2">
+  <mat-card-header>
+    <mat-card-title>Inscriptions List</mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <!-- Search Filter -->
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Search Inscriptions</mat-label>
+      <input
+        matInput
+        (keyup)="applyFilter($event)"
+        placeholder="Search by student or course name"
+        #input>
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table mat-table [dataSource]="dataSource" matSort class="inscriptions-table">
+        <!-- ID Column -->
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="id-column">ID</th>
+          <td mat-cell *matCellDef="let row" class="id-column">{{ row.id }}</td>
+        </ng-container>
+
+        <!-- Student Name Column -->
+        <ng-container matColumnDef="studentName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Student Name</th>
+          <td mat-cell *matCellDef="let row" class="student-name">{{ row.studentName }}</td>
+        </ng-container>
+
+        <!-- Course Name Column -->
+        <ng-container matColumnDef="courseName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Course Name</th>
+          <td mat-cell *matCellDef="let row" class="course-name">{{ row.courseName }}</td>
+        </ng-container>
+
+        <!-- Course Code Column -->
+        <ng-container matColumnDef="courseCode">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="code-column">Course Code</th>
+          <td mat-cell *matCellDef="let row" class="code-column">
+            <span class="code-badge">{{ row.courseCode }}</span>
+          </td>
+        </ng-container>
+
+        <!-- Enrollment Date Column -->
+        <ng-container matColumnDef="enrollmentDate">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="date-column">Enrollment Date</th>
+          <td mat-cell *matCellDef="let row" class="date-column">{{ row.enrollmentDate | date:'shortDate' }}</td>
+        </ng-container>
+
+        <!-- Status Column -->
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header class="status-column">Status</th>
+          <td mat-cell *matCellDef="let row" class="status-column">
+            <mat-chip-set>
+              <mat-chip [highlighted]="true" [color]="getStatusColor(row.status)">
+                {{ row.status | uppercase }}
+              </mat-chip>
+            </mat-chip-set>
+          </td>
+        </ng-container>
+
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef class="actions-column">Actions</th>
+          <td mat-cell *matCellDef="let row" class="actions-column">
+            <button
+              mat-icon-button
+              color="primary"
+              (click)="onEdit(row)"
+              aria-label="Edit inscription"
+              matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              color="accent"
+              (click)="onCancel(row)"
+              [disabled]="!canCancelInscription(row.status)"
+              aria-label="Cancel inscription"
+              matTooltip="Cancel Inscription">
+              <mat-icon>cancel</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              color="warn"
+              (click)="onDelete(row)"
+              aria-label="Delete inscription"
+              matTooltip="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: displayedColumns;"
+          class="table-row"></tr>
+
+        <!-- No Data Row -->
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell no-data" [attr.colspan]="displayedColumns.length">
+            No inscriptions found
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Paginator -->
+    <mat-paginator
+      [pageSizeOptions]="[5, 10, 25]"
+      [pageSize]="5"
+      showFirstLastButtons
+      aria-label="Select page of inscriptions">
+    </mat-paginator>
+  </mat-card-content>
+</mat-card>

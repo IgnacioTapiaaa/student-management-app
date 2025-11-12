@@ -1,0 +1,37 @@
+<div class="stats-container">
+  <mat-card class="stat-card mat-elevation-z2">
+    <mat-card-content>
+      <div class="stat-content">
+        <mat-icon class="stat-icon" color="primary">school</mat-icon>
+        <div class="stat-info">
+          <div class="stat-label">Total Courses</div>
+          <div class="stat-value">{{ totalCourses }}</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card mat-elevation-z2">
+    <mat-card-content>
+      <div class="stat-content">
+        <mat-icon class="stat-icon" color="accent">event_available</mat-icon>
+        <div class="stat-info">
+          <div class="stat-label">Active Courses</div>
+          <div class="stat-value">{{ activeCourses }}</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card mat-elevation-z2">
+    <mat-card-content>
+      <div class="stat-content">
+        <mat-icon class="stat-icon" color="primary">people</mat-icon>
+        <div class="stat-info">
+          <div class="stat-label">Avg. Enrollment</div>
+          <div class="stat-value">{{ averageEnrollment }} <span class="stat-unit">students</span></div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

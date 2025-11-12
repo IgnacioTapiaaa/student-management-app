@@ -1,0 +1,151 @@
+.table-card {
+  mat-card-header {
+    margin-bottom: 16px;
+  }
+
+  mat-card-title {
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+.filter-field {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 16px;
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.courses-table {
+  width: 100%;
+  background-color: white;
+
+  th {
+    background-color: #fafafa;
+    font-weight: 600;
+    color: #333;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .id-column {
+    width: 60px;
+    text-align: center;
+  }
+
+  .code-column {
+    width: 100px;
+    text-align: center;
+  }
+
+  .duration-column {
+    width: 90px;
+    text-align: center;
+  }
+
+  .enrollment-column {
+    width: 150px;
+  }
+
+  .date-column {
+    width: 110px;
+  }
+
+  .actions-column {
+    width: 120px;
+    text-align: center;
+  }
+
+  .name-cell {
+    font-weight: 500;
+  }
+
+  .code-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background-color: #e3f2fd;
+    color: #1976d2;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .enrollment-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .enrollment-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .enrollment-bar {
+    height: 6px;
+    border-radius: 3px;
+  }
+
+  .table-row {
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: #f5f5f5;
+      cursor: pointer;
+    }
+
+    &:nth-child(even) {
+      background-color: #fafafa;
+
+      &:hover {
+        background-color: #f0f0f0;
+      }
+    }
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 32px 16px;
+    color: #666;
+    font-style: italic;
+  }
+}
+
+@media (max-width: 768px) {
+  .table-card {
+    border-radius: 0;
+    margin-left: -24px;
+    margin-right: -24px;
+  }
+
+  .courses-table {
+    font-size: 14px;
+
+    .id-column {
+      width: 50px;
+    }
+
+    .code-column {
+      width: 80px;
+    }
+
+    .duration-column {
+      width: 70px;
+    }
+
+    .enrollment-column {
+      width: 120px;
+    }
+
+    .actions-column {
+      width: 100px;
+    }
+  }
+}
