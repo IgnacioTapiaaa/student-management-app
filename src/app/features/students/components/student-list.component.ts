@@ -1,5 +1,6 @@
-import { Component, OnInit, ViewChild, Input, Output, EventEmitter, effect } from '@angular/core';
+import { Component, OnInit, ViewChild, Input, Output, EventEmitter, effect, inject, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -8,8 +9,10 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Student } from '../../../core/models/student.interface';
 import { FullNamePipe } from '../../../core/pipes/full-name.pipe';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-student-list',
@@ -24,12 +27,16 @@ import { FullNamePipe } from '../../../core/pipes/full-name.pipe';
     MatPaginatorModule,
     MatSortModule,
     MatIconModule,
+    MatTooltipModule,
     FullNamePipe
   ],
   templateUrl: './student-list.component.html',
   styleUrls: ['./student-list.component.scss']
 })
-export class StudentListComponent implements OnInit {
+export class StudentListComponent implements OnInit, OnChanges {
+  private authService = inject(AuthService);
+  private router = inject(Router);
+
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
@@ -41,14 +48,19 @@ export class StudentListComponent implements OnInit {
   dataSource = new MatTableDataSource<Student>([]);
   displayedColumns: string[] = ['id', 'fullName', 'age', 'email', 'actions'];
 
-  constructor() {
-    effect(() => {
-      this.dataSource.data = this.students;
-    });
-  }
+  // Admin check
+  isAdmin = this.authService.isAdmin;
+
+  constructor() { }
 
   ngOnInit(): void {
     this.dataSource.data = this.students;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['students']) {
+      this.dataSource.data = this.students;
+    }
   }
 
   ngAfterViewInit(): void {
@@ -71,6 +83,10 @@ export class StudentListComponent implements OnInit {
 
   onDelete(student: Student): void {
     this.deleteStudent.emit(student);
+  }
+
+  onViewDetails(student: Student): void {
+    this.router.navigate(['/students', student.id]);
   }
 
   trackByStudentId(index: number, student: Student): number {

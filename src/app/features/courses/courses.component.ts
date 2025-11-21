@@ -48,30 +48,41 @@ export class CoursesComponent {
 
     if (formData.editingId !== null) {
       console.log('[CoursesComponent] Updating course with ID:', formData.editingId);
-      const success = this.coursesService.updateCourse(
+      this.coursesService.updateCourse(
         formData.editingId,
         formData.data
-      );
-      console.log('[CoursesComponent] Update result:', success);
-
-      if (success) {
-        this.snackBar.open('Course updated successfully', 'Close', {
-          duration: 3000
-        });
-        this.resetEditMode();
-      } else {
-        this.snackBar.open('Failed to update course', 'Close', {
-          duration: 3000
-        });
-      }
+      ).subscribe({
+        next: (updatedCourse) => {
+          console.log('[CoursesComponent] Course updated:', updatedCourse);
+          this.snackBar.open('Course updated successfully', 'Close', {
+            duration: 3000
+          });
+          this.resetEditMode();
+        },
+        error: (error) => {
+          console.error('[CoursesComponent] Update error:', error);
+          this.snackBar.open('Failed to update course', 'Close', {
+            duration: 3000
+          });
+        }
+      });
     } else {
       console.log('[CoursesComponent] Adding new course');
-      const newCourse = this.coursesService.addCourse(formData.data);
-      console.log('[CoursesComponent] New course created:', newCourse);
-      this.snackBar.open('Course added successfully', 'Close', {
-        duration: 3000
+      this.coursesService.addCourse(formData.data).subscribe({
+        next: (newCourse) => {
+          console.log('[CoursesComponent] New course created:', newCourse);
+          this.snackBar.open('Course added successfully', 'Close', {
+            duration: 3000
+          });
+          this.resetEditMode();
+        },
+        error: (error) => {
+          console.error('[CoursesComponent] Add error:', error);
+          this.snackBar.open('Failed to add course', 'Close', {
+            duration: 3000
+          });
+        }
       });
-      this.resetEditMode();
     }
   }
 
@@ -96,21 +107,23 @@ export class CoursesComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        const success = this.coursesService.deleteCourse(course.id);
+        this.coursesService.deleteCourse(course.id).subscribe({
+          next: () => {
+            this.snackBar.open('Course deleted successfully', 'Close', {
+              duration: 3000
+            });
 
-        if (success) {
-          this.snackBar.open('Course deleted successfully', 'Close', {
-            duration: 3000
-          });
-
-          if (this.editingCourse()?.id === course.id) {
-            this.resetEditMode();
+            if (this.editingCourse()?.id === course.id) {
+              this.resetEditMode();
+            }
+          },
+          error: (error) => {
+            console.error('[CoursesComponent] Delete error:', error);
+            this.snackBar.open('Failed to delete course', 'Close', {
+              duration: 3000
+            });
           }
-        } else {
-          this.snackBar.open('Failed to delete course', 'Close', {
-            duration: 3000
-          });
-        }
+        });
       }
     });
   }

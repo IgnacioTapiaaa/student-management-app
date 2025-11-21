@@ -66,6 +66,7 @@
           <th mat-header-cell *matHeaderCellDef class="actions-column">Actions</th>
           <td mat-cell *matCellDef="let row" class="actions-column">
             <button
+              *ngIf="isAdmin()"
               mat-icon-button
               color="primary"
               (click)="onEdit(row)"
@@ -74,6 +75,7 @@
               <mat-icon>edit</mat-icon>
             </button>
             <button
+              *ngIf="isAdmin()"
               mat-icon-button
               color="accent"
               (click)="onCancel(row)"
@@ -83,6 +85,7 @@
               <mat-icon>cancel</mat-icon>
             </button>
             <button
+              *ngIf="isAdmin()"
               mat-icon-button
               color="warn"
               (click)="onDelete(row)"
@@ -90,6 +93,7 @@
               matTooltip="Delete">
               <mat-icon>delete</mat-icon>
             </button>
+            <span *ngIf="!isAdmin()" class="no-actions">View only</span>
           </td>
         </ng-container>
 

@@ -1,0 +1,39 @@
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+
+  .stat-card {
+    mat-card-content {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+
+      .stat-icon {
+        mat-icon {
+          font-size: 48px;
+          width: 48px;
+          height: 48px;
+        }
+      }
+
+      .stat-info {
+        flex: 1;
+
+        .stat-label {
+          font-size: 14px;
+          color: rgba(0, 0, 0, 0.6);
+          margin-bottom: 4px;
+        }
+
+        .stat-value {
+          font-size: 32px;
+          font-weight: 500;
+          color: #3f51b5;
+        }
+      }
+    }
+  }
+}

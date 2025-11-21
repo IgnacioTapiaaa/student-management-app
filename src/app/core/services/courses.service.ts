@@ -1,122 +1,178 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { Course, CreateCourse, UpdateCourse } from '../models/course.interface';
+import { environment } from '../../../environments/environment.development';
 
 @Injectable({
   providedIn: 'root'
 })
 export class CoursesService {
-  private coursesSignal = signal<Course[]>(this.getInitialData());
+  private http = inject(HttpClient);
+  private apiUrl = `${environment.apiUrl}/courses`;
 
-  public readonly courses = this.coursesSignal.asReadonly();
+  // Writable signal for manual updates after mutations
+  private coursesWritableSignal = signal<Course[]>([]);
 
-  public readonly totalCourses = computed(() => this.coursesSignal().length);
+  // Public readonly signal
+  public readonly courses = computed(() => this.coursesWritableSignal());
+
+  // Computed signals for stats
+  public readonly totalCourses = computed(() => this.courses().length);
 
   public readonly activeCourses = computed(() =>
-    this.coursesSignal().filter(course => {
+    this.courses().filter(course => {
       const now = new Date();
-      return course.startDate <= now && course.endDate >= now;
+      const startDate = new Date(course.startDate);
+      const endDate = new Date(course.endDate);
+      return startDate <= now && endDate >= now;
     }).length
   );
 
   public readonly averageEnrollment = computed(() => {
-    const courses = this.coursesSignal();
-    if (courses.length === 0) {
+    const coursesList = this.courses();
+    if (coursesList.length === 0) {
       return 0;
     }
-    const total = courses.reduce((sum, course) => sum + course.enrolled, 0);
-    return Math.round(total / courses.length);
+    const total = coursesList.reduce((sum, course) => sum + course.enrolled, 0);
+    return Math.round(total / coursesList.length);
   });
 
-  private nextId = 6;
+  constructor() {
+    // Load initial data
+    this.loadCourses();
+  }
 
-  addCourse(course: CreateCourse): Course {
-    console.log('[CoursesService] addCourse called with:', course);
-    const newCourse: Course = {
-      ...course,
-      id: this.nextId++
-    };
-    console.log('[CoursesService] New course object:', newCourse);
-
-    this.coursesSignal.update(courses => {
-      const updated = [...courses, newCourse];
-      console.log('[CoursesService] Signal updated. Total courses:', updated.length);
-      return updated;
+  /**
+   * Load all courses from API
+   */
+  private loadCourses(): void {
+    this.http.get<Course[]>(this.apiUrl).pipe(
+      catchError(this.handleError)
+    ).subscribe({
+      next: (courses) => {
+        this.coursesWritableSignal.set(courses);
+      },
+      error: (error) => {
+        console.error('Error loading courses:', error);
+        this.coursesWritableSignal.set([]);
+      }
     });
-
-    return newCourse;
   }
 
-  updateCourse(id: number, changes: UpdateCourse): boolean {
+  /**
+   * Refresh courses data from API
+   */
+  refreshCourses(): void {
+    this.loadCourses();
+  }
+
+  /**
+   * Add a new course via API
+   */
+  addCourse(course: CreateCourse): Observable<Course> {
+    console.log('[CoursesService] addCourse called with:', course);
+
+    return this.http.post<Course>(this.apiUrl, course).pipe(
+      tap(newCourse => {
+        console.log('[CoursesService] Course created:', newCourse);
+        // Update local signal
+        this.coursesWritableSignal.update(courses => [...courses, newCourse]);
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Update an existing course via API
+   */
+  updateCourse(id: number, changes: UpdateCourse): Observable<Course> {
     console.log('[CoursesService] updateCourse called with ID:', id, 'Changes:', changes);
-    const courses = this.coursesSignal();
-    const index = courses.findIndex(c => c.id === id);
 
-    if (index === -1) {
-      console.log('[CoursesService] Course not found with ID:', id);
-      return false;
-    }
-
-    this.coursesSignal.update(courses =>
-      courses.map(course =>
-        course.id === id
-          ? { ...course, ...changes }
-          : course
-      )
+    const url = `${this.apiUrl}/${id}`;
+    return this.http.put<Course>(url, changes).pipe(
+      tap(updatedCourse => {
+        console.log('[CoursesService] Course updated:', updatedCourse);
+        // Update local signal
+        this.coursesWritableSignal.update(courses =>
+          courses.map(course =>
+            course.id === id ? { ...course, ...updatedCourse } : course
+          )
+        );
+      }),
+      catchError(this.handleError)
     );
-    console.log('[CoursesService] Course updated successfully');
-
-    return true;
   }
 
-  deleteCourse(id: number): boolean {
-    const courses = this.coursesSignal();
-    const index = courses.findIndex(c => c.id === id);
+  /**
+   * Delete a course via API
+   */
+  deleteCourse(id: number): Observable<void> {
+    console.log('[CoursesService] deleteCourse called with ID:', id);
 
-    if (index === -1) {
-      return false;
-    }
-
-    this.coursesSignal.update(courses =>
-      courses.filter(course => course.id !== id)
+    const url = `${this.apiUrl}/${id}`;
+    return this.http.delete<void>(url).pipe(
+      tap(() => {
+        console.log('[CoursesService] Course deleted');
+        // Update local signal
+        this.coursesWritableSignal.update(courses =>
+          courses.filter(course => course.id !== id)
+        );
+      }),
+      catchError(this.handleError)
     );
-
-    return true;
   }
 
+  /**
+   * Get a course by ID (from local signal)
+   */
   getCourseById(id: number): Course | undefined {
-    return this.coursesSignal().find(c => c.id === id);
+    return this.courses().find(c => c.id === id);
   }
 
+  /**
+   * Search courses (from local signal)
+   */
   searchCourses(term: string): Course[] {
     if (!term || term.trim() === '') {
-      return this.coursesSignal();
+      return this.courses();
     }
 
     const searchTerm = term.toLowerCase().trim();
 
-    return this.coursesSignal().filter(course =>
+    return this.courses().filter(course =>
       course.name.toLowerCase().includes(searchTerm) ||
       course.code.toLowerCase().includes(searchTerm) ||
       course.instructor.toLowerCase().includes(searchTerm)
     );
   }
 
+  /**
+   * Get available courses (from local signal)
+   */
   getAvailableCourses(): Course[] {
-    return this.coursesSignal().filter(course =>
+    return this.courses().filter(course =>
       course.enrolled < course.capacity
     );
   }
 
+  /**
+   * Check if enrollment is possible (from local signal)
+   */
   canEnroll(courseId: number): boolean {
     const course = this.getCourseById(courseId);
     return course ? course.enrolled < course.capacity : false;
   }
 
-  incrementEnrollment(courseId: number): boolean {
+  /**
+   * Increment enrollment count
+   */
+  incrementEnrollment(courseId: number): Observable<Course> {
     const course = this.getCourseById(courseId);
 
     if (!course || course.enrolled >= course.capacity) {
-      return false;
+      return throwError(() => new Error('Cannot enroll: course is full or not found'));
     }
 
     return this.updateCourse(courseId, {
@@ -124,11 +180,14 @@ export class CoursesService {
     });
   }
 
-  decrementEnrollment(courseId: number): boolean {
+  /**
+   * Decrement enrollment count
+   */
+  decrementEnrollment(courseId: number): Observable<Course> {
     const course = this.getCourseById(courseId);
 
     if (!course || course.enrolled <= 0) {
-      return false;
+      return throwError(() => new Error('Cannot decrement: enrollment is already 0 or course not found'));
     }
 
     return this.updateCourse(courseId, {
@@ -136,63 +195,21 @@ export class CoursesService {
     });
   }
 
-  private getInitialData(): Course[] {
-    return [
-      {
-        id: 1,
-        name: 'Desarrollo Web con Angular',
-        code: 'DWA-101',
-        instructor: 'Dr. Carlos Mendoza',
-        duration: 40,
-        startDate: new Date('2025-01-15'),
-        endDate: new Date('2025-03-15'),
-        capacity: 30,
-        enrolled: 25
-      },
-      {
-        id: 2,
-        name: 'Bases de Datos Avanzadas',
-        code: 'BDA-201',
-        instructor: 'Dra. Ana Martínez',
-        duration: 60,
-        startDate: new Date('2025-02-01'),
-        endDate: new Date('2025-04-30'),
-        capacity: 25,
-        enrolled: 20
-      },
-      {
-        id: 3,
-        name: 'Algoritmos y Estructuras de Datos',
-        code: 'AED-301',
-        instructor: 'Prof. Miguel Rodríguez',
-        duration: 50,
-        startDate: new Date('2025-01-20'),
-        endDate: new Date('2025-04-10'),
-        capacity: 35,
-        enrolled: 30
-      },
-      {
-        id: 4,
-        name: 'Programación en TypeScript',
-        code: 'PTS-102',
-        instructor: 'Ing. Laura García',
-        duration: 30,
-        startDate: new Date('2025-03-01'),
-        endDate: new Date('2025-04-15'),
-        capacity: 20,
-        enrolled: 15
-      },
-      {
-        id: 5,
-        name: 'Arquitectura de Software',
-        code: 'ARS-401',
-        instructor: 'Dr. José López',
-        duration: 45,
-        startDate: new Date('2025-02-15'),
-        endDate: new Date('2025-05-15'),
-        capacity: 28,
-        enrolled: 22
-      }
-    ];
+  /**
+   * Handle HTTP errors
+   */
+  private handleError(error: HttpErrorResponse): Observable<never> {
+    let errorMessage = 'An error occurred';
+
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      // Server-side error
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    }
+
+    console.error('[CoursesService] HTTP Error:', errorMessage);
+    return throwError(() => new Error(errorMessage));
   }
 }

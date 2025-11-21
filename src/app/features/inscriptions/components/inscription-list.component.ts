@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, Input, Output, EventEmitter, effect, inject } from '@angular/core';
+import { Component, OnInit, ViewChild, Input, Output, EventEmitter, effect, inject, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,9 +9,11 @@ import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Inscription } from '../../../core/models/inscription.interface';
 import { StudentsService } from '../../../core/services/students.service';
 import { CoursesService } from '../../../core/services/courses.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 interface InscriptionTableRow {
   id: number;
@@ -36,12 +38,13 @@ interface InscriptionTableRow {
     MatPaginatorModule,
     MatSortModule,
     MatIconModule,
-    MatChipsModule
+    MatChipsModule,
+    MatTooltipModule
   ],
   templateUrl: './inscription-list.component.html',
   styleUrls: ['./inscription-list.component.scss']
 })
-export class InscriptionListComponent implements OnInit {
+export class InscriptionListComponent implements OnInit, OnChanges {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
@@ -51,20 +54,26 @@ export class InscriptionListComponent implements OnInit {
   @Output() deleteInscription = new EventEmitter<Inscription>();
   @Output() cancelInscription = new EventEmitter<Inscription>();
 
+  private authService = inject(AuthService);
   studentsService = inject(StudentsService);
   coursesService = inject(CoursesService);
 
   dataSource = new MatTableDataSource<InscriptionTableRow>([]);
   displayedColumns: string[] = ['id', 'studentName', 'courseName', 'courseCode', 'enrollmentDate', 'status', 'actions'];
 
-  constructor() {
-    effect(() => {
-      this.updateTableData();
-    });
-  }
+  // Admin check
+  isAdmin = this.authService.isAdmin;
+
+  constructor() { }
 
   ngOnInit(): void {
     this.updateTableData();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['inscriptions']) {
+      this.updateTableData();
+    }
   }
 
   ngAfterViewInit(): void {
@@ -75,8 +84,8 @@ export class InscriptionListComponent implements OnInit {
     this.dataSource.filterPredicate = (data: InscriptionTableRow, filter: string) => {
       const searchStr = filter.toLowerCase();
       return data.studentName.toLowerCase().includes(searchStr) ||
-             data.courseName.toLowerCase().includes(searchStr) ||
-             data.courseCode.toLowerCase().includes(searchStr);
+        data.courseName.toLowerCase().includes(searchStr) ||
+        data.courseCode.toLowerCase().includes(searchStr);
     };
   }
 

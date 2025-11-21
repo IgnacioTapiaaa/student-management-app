@@ -1,0 +1,29 @@
+<div class="users-container">
+  <div class="header">
+    <h1>User Management</h1>
+    <p class="subtitle">Manage system users and their roles</p>
+  </div>
+
+  <!-- User Statistics -->
+  <app-user-stats
+    [totalUsers]="totalUsers()"
+    [adminUsers]="adminUsers()"
+    [regularUsers]="regularUsers()">
+  </app-user-stats>
+
+  <!-- User Form -->
+  <app-user-form
+    [formTitle]="formTitle()"
+    [submitButtonText]="submitButtonText()"
+    [userToEdit]="editingUser()"
+    (userSubmit)="onUserSubmit($event)"
+    (formCancel)="onFormCancel()">
+  </app-user-form>
+
+  <!-- User List -->
+  <app-user-list
+    [users]="users()"
+    (editUser)="onEditUser($event)"
+    (deleteUser)="onDeleteUser($event)">
+  </app-user-list>
+</div>

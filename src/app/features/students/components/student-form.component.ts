@@ -1,4 +1,4 @@
-import { Component, OnInit, Output, EventEmitter, Input, effect } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter, Input, effect, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -33,7 +33,7 @@ export interface StudentFormData {
   templateUrl: './student-form.component.html',
   styleUrls: ['./student-form.component.scss']
 })
-export class StudentFormComponent implements OnInit {
+export class StudentFormComponent implements OnInit, OnChanges {
   @Input() formTitle: string = 'Add New Student';
   @Input() submitButtonText: string = 'Save Student';
   @Input() studentToEdit: Student | null = null;
@@ -43,16 +43,20 @@ export class StudentFormComponent implements OnInit {
 
   studentForm!: FormGroup<StudentForm>;
 
-  constructor(private fb: FormBuilder) {
-    effect(() => {
-      if (this.studentToEdit) {
-        this.loadStudentData(this.studentToEdit);
-      }
-    });
-  }
+  constructor(private fb: FormBuilder) { }
 
   ngOnInit(): void {
     this.initializeForm();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['studentToEdit'] && this.studentToEdit) {
+      // Ensure form is initialized before patching
+      if (!this.studentForm) {
+        this.initializeForm();
+      }
+      this.loadStudentData(this.studentToEdit);
+    }
   }
 
   private initializeForm(): void {

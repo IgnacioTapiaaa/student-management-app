@@ -1,0 +1,134 @@
+.course-detail-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 500;
+      color: #333;
+    }
+  }
+
+  .course-info-card {
+    margin-bottom: 24px;
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 24px;
+      padding: 16px 0;
+
+      .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        &.full-width {
+          grid-column: 1 / -1;
+        }
+
+        .label {
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(0, 0, 0, 0.6);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .value {
+          font-size: 16px;
+          color: #333;
+        }
+
+        .enrollment-bar {
+          width: 100%;
+          height: 24px;
+          background-color: #e0e0e0;
+          border-radius: 12px;
+          overflow: hidden;
+          margin-top: 8px;
+
+          .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3f51b5 0%, #536dfe 100%);
+            transition: width 0.3s ease;
+          }
+        }
+
+        .enrollment-percentage {
+          font-size: 14px;
+          color: #666;
+          margin-top: 4px;
+        }
+      }
+    }
+  }
+
+  .students-card {
+    mat-card-header {
+      margin-bottom: 16px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+
+      table {
+        width: 100%;
+
+        th {
+          font-weight: 600;
+          background-color: #fafafa;
+        }
+
+        td,
+        th {
+          padding: 12px 16px;
+        }
+
+        .mat-mdc-row:hover {
+          background-color: #f5f5f5;
+        }
+      }
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 48px 24px;
+      color: rgba(0, 0, 0, 0.54);
+
+      mat-icon {
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+
+      p {
+        font-size: 16px;
+        margin: 0;
+      }
+    }
+  }
+}
+
+.loading {
+  text-align: center;
+  padding: 48px 24px;
+  font-size: 18px;
+  color: rgba(0, 0, 0, 0.54);
+}

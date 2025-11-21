@@ -1,0 +1,40 @@
+<div class="stats-container">
+  <!-- Total Users Card -->
+  <mat-card class="stat-card">
+    <mat-card-content>
+      <div class="stat-icon">
+        <mat-icon color="primary">people</mat-icon>
+      </div>
+      <div class="stat-info">
+        <div class="stat-label">Total Users</div>
+        <div class="stat-value">{{ totalUsers }}</div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Admin Users Card -->
+  <mat-card class="stat-card">
+    <mat-card-content>
+      <div class="stat-icon">
+        <mat-icon color="primary">admin_panel_settings</mat-icon>
+      </div>
+      <div class="stat-info">
+        <div class="stat-label">Administrators</div>
+        <div class="stat-value">{{ adminUsers }}</div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Regular Users Card -->
+  <mat-card class="stat-card">
+    <mat-card-content>
+      <div class="stat-icon">
+        <mat-icon color="accent">person</mat-icon>
+      </div>
+      <div class="stat-info">
+        <div class="stat-label">Regular Users</div>
+        <div class="stat-value">{{ regularUsers }}</div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

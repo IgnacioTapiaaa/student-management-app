@@ -1,136 +1,159 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import { Student, CreateStudent, UpdateStudent } from '../models/student.interface';
+import { environment } from '../../../environments/environment.development';
 
 @Injectable({
   providedIn: 'root'
 })
 export class StudentsService {
-  private studentsSignal = signal<Student[]>(this.getInitialData());
+  private http = inject(HttpClient);
+  private apiUrl = `${environment.apiUrl}/students`;
 
-  public readonly students = this.studentsSignal.asReadonly();
+  // Writable signal for manual updates after mutations
+  private studentsWritableSignal = signal<Student[]>([]);
 
-  public readonly totalStudents = computed(() => this.studentsSignal().length);
+  // Public readonly signal
+  public readonly students = computed(() => this.studentsWritableSignal());
+
+  // Computed signals for stats
+  public readonly totalStudents = computed(() => this.students().length);
 
   public readonly averageAge = computed(() => {
-    const students = this.studentsSignal();
-    if (students.length === 0) {
+    const studentsList = this.students();
+    if (studentsList.length === 0) {
       return 0;
     }
-    const total = students.reduce((sum, student) => sum + student.age, 0);
-    return Math.round(total / students.length);
+    const total = studentsList.reduce((sum, student) => sum + student.age, 0);
+    return Math.round(total / studentsList.length);
   });
 
-  private nextId = 6;
+  constructor() {
+    // Load initial data
+    this.loadStudents();
+  }
 
-  addStudent(student: CreateStudent): Student {
-    console.log('[StudentsService] addStudent called with:', student);
-    const newStudent: Student = {
-      ...student,
-      id: this.nextId++
-    };
-    console.log('[StudentsService] New student object:', newStudent);
-
-    this.studentsSignal.update(students => {
-      const updated = [...students, newStudent];
-      console.log('[StudentsService] Signal updated. Total students:', updated.length);
-      return updated;
+  /**
+   * Load all students from API
+   */
+  private loadStudents(): void {
+    this.http.get<Student[]>(this.apiUrl).pipe(
+      catchError(this.handleError)
+    ).subscribe({
+      next: (students) => {
+        this.studentsWritableSignal.set(students);
+      },
+      error: (error) => {
+        console.error('Error loading students:', error);
+        this.studentsWritableSignal.set([]);
+      }
     });
-
-    return newStudent;
   }
 
-  updateStudent(id: number, changes: UpdateStudent): boolean {
+  /**
+   * Refresh students data from API
+   */
+  refreshStudents(): void {
+    this.loadStudents();
+  }
+
+  /**
+   * Add a new student via API
+   */
+  addStudent(student: CreateStudent): Observable<Student> {
+    console.log('[StudentsService] addStudent called with:', student);
+
+    return this.http.post<Student>(this.apiUrl, student).pipe(
+      tap(newStudent => {
+        console.log('[StudentsService] Student created:', newStudent);
+        // Update local signal
+        this.studentsWritableSignal.update(students => [...students, newStudent]);
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Update an existing student via API
+   */
+  updateStudent(id: number, changes: UpdateStudent): Observable<Student> {
     console.log('[StudentsService] updateStudent called with ID:', id, 'Changes:', changes);
-    const students = this.studentsSignal();
-    const index = students.findIndex(s => s.id === id);
 
-    if (index === -1) {
-      console.log('[StudentsService] Student not found with ID:', id);
-      return false;
-    }
-
-    this.studentsSignal.update(students =>
-      students.map(student =>
-        student.id === id
-          ? { ...student, ...changes }
-          : student
-      )
+    const url = `${this.apiUrl}/${id}`;
+    return this.http.put<Student>(url, changes).pipe(
+      tap(updatedStudent => {
+        console.log('[StudentsService] Student updated:', updatedStudent);
+        // Update local signal
+        this.studentsWritableSignal.update(students =>
+          students.map(student =>
+            student.id === id ? { ...student, ...updatedStudent } : student
+          )
+        );
+      }),
+      catchError(this.handleError)
     );
-    console.log('[StudentsService] Student updated successfully');
-
-    return true;
   }
 
-  deleteStudent(id: number): boolean {
-    const students = this.studentsSignal();
-    const index = students.findIndex(s => s.id === id);
+  /**
+   * Delete a student via API
+   */
+  deleteStudent(id: number): Observable<void> {
+    console.log('[StudentsService] deleteStudent called with ID:', id);
 
-    if (index === -1) {
-      return false;
-    }
-
-    this.studentsSignal.update(students =>
-      students.filter(student => student.id !== id)
+    const url = `${this.apiUrl}/${id}`;
+    return this.http.delete<void>(url).pipe(
+      tap(() => {
+        console.log('[StudentsService] Student deleted');
+        // Update local signal
+        this.studentsWritableSignal.update(students =>
+          students.filter(student => student.id !== id)
+        );
+      }),
+      catchError(this.handleError)
     );
-
-    return true;
   }
 
+  /**
+   * Get a student by ID (from local signal)
+   */
   getStudentById(id: number): Student | undefined {
-    return this.studentsSignal().find(s => s.id === id);
+    return this.students().find(s => s.id === id);
   }
 
+  /**
+   * Search students (from local signal)
+   */
   searchStudents(term: string): Student[] {
     if (!term || term.trim() === '') {
-      return this.studentsSignal();
+      return this.students();
     }
 
     const searchTerm = term.toLowerCase().trim();
 
-    return this.studentsSignal().filter(student =>
+    return this.students().filter(student =>
       student.firstName.toLowerCase().includes(searchTerm) ||
       student.lastName.toLowerCase().includes(searchTerm) ||
       student.email.toLowerCase().includes(searchTerm)
     );
   }
 
-  private getInitialData(): Student[] {
-    return [
-      {
-        id: 1,
-        firstName: 'Juan',
-        lastName: 'Pérez',
-        age: 20,
-        email: 'juan@mail.com'
-      },
-      {
-        id: 2,
-        firstName: 'María',
-        lastName: 'González',
-        age: 22,
-        email: 'maria@mail.com'
-      },
-      {
-        id: 3,
-        firstName: 'Carlos',
-        lastName: 'López',
-        age: 19,
-        email: 'carlos@mail.com'
-      },
-      {
-        id: 4,
-        firstName: 'Ana',
-        lastName: 'Martínez',
-        age: 21,
-        email: 'ana@mail.com'
-      },
-      {
-        id: 5,
-        firstName: 'Pedro',
-        lastName: 'Rodríguez',
-        age: 23,
-        email: 'pedro@mail.com'
-      }
-    ];
+  /**
+   * Handle HTTP errors
+   */
+  private handleError(error: HttpErrorResponse): Observable<never> {
+    let errorMessage = 'An error occurred';
+
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      // Server-side error
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    }
+
+    console.error('[StudentsService] HTTP Error:', errorMessage);
+    return throwError(() => new Error(errorMessage));
   }
 }

@@ -1,5 +1,6 @@
-import { Component, OnInit, ViewChild, Input, Output, EventEmitter, effect } from '@angular/core';
+import { Component, OnInit, ViewChild, Input, Output, EventEmitter, effect, inject, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -9,7 +10,9 @@ import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Course } from '../../../core/models/course.interface';
+import { AuthService } from '../../../core/auth/auth.service';
 
 @Component({
   selector: 'app-course-list',
@@ -24,12 +27,16 @@ import { Course } from '../../../core/models/course.interface';
     MatPaginatorModule,
     MatSortModule,
     MatIconModule,
-    MatProgressBarModule
+    MatProgressBarModule,
+    MatTooltipModule
   ],
   templateUrl: './course-list.component.html',
   styleUrls: ['./course-list.component.scss']
 })
-export class CourseListComponent implements OnInit {
+export class CourseListComponent implements OnInit, OnChanges {
+  private authService = inject(AuthService);
+  private router = inject(Router);
+
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
@@ -41,14 +48,19 @@ export class CourseListComponent implements OnInit {
   dataSource = new MatTableDataSource<Course>([]);
   displayedColumns: string[] = ['id', 'name', 'code', 'instructor', 'duration', 'enrollment', 'startDate', 'actions'];
 
-  constructor() {
-    effect(() => {
-      this.dataSource.data = this.courses;
-    });
-  }
+  // Admin check
+  isAdmin = this.authService.isAdmin;
+
+  constructor() { }
 
   ngOnInit(): void {
     this.dataSource.data = this.courses;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['courses']) {
+      this.dataSource.data = this.courses;
+    }
   }
 
   ngAfterViewInit(): void {
@@ -71,6 +83,10 @@ export class CourseListComponent implements OnInit {
 
   onDelete(course: Course): void {
     this.deleteCourse.emit(course);
+  }
+
+  onViewDetails(course: Course): void {
+    this.router.navigate(['/courses', course.id]);
   }
 
   getEnrollmentPercentage(course: Course): number {

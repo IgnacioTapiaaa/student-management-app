@@ -1,0 +1,146 @@
+<div class="course-detail-container" *ngIf="course(); else loadingOrNotFound">
+  <!-- Header with Back Button -->
+  <div class="header">
+    <button mat-raised-button (click)="goBack()">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Courses
+    </button>
+    <h1>Course Details</h1>
+  </div>
+
+  <!-- Course Information Card -->
+  <mat-card class="course-info-card">
+    <mat-card-header>
+      <mat-card-title>Course Information</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">ID:</span>
+          <span class="value">{{ course()!.id }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Course Name:</span>
+          <span class="value">{{ course()!.name }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Course Code:</span>
+          <span class="value">{{ course()!.code }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Instructor:</span>
+          <span class="value">{{ course()!.instructor }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Duration:</span>
+          <span class="value">{{ course()!.duration }} hours</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Start Date:</span>
+          <span class="value">{{ formatDate(course()!.startDate) }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">End Date:</span>
+          <span class="value">{{ formatDate(course()!.endDate) }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Capacity:</span>
+          <span class="value">{{ course()!.enrolled }} / {{ course()!.capacity }} students</span>
+        </div>
+        <div class="info-item full-width">
+          <span class="label">Enrollment:</span>
+          <div class="enrollment-bar">
+            <div class="progress-bar" [style.width.%]="getEnrollmentPercentage()"></div>
+          </div>
+          <span class="enrollment-percentage">{{ getEnrollmentPercentage().toFixed(0) }}% Full</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Enrolled Students Section -->
+  <mat-card class="students-card">
+    <mat-card-header>
+      <mat-card-title>Enrolled Students</mat-card-title>
+      <mat-card-subtitle>
+        {{ enrolledStudents().length }}
+        {{ enrolledStudents().length === 1 ? 'student' : 'students' }}
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="table-container" *ngIf="enrolledStudents().length > 0; else noStudents">
+        <table mat-table [dataSource]="enrolledStudents()" class="mat-elevation-z2">
+          <!-- Student Name Column -->
+          <ng-container matColumnDef="studentName">
+            <th mat-header-cell *matHeaderCellDef>Student Name</th>
+            <td mat-cell *matCellDef="let inscription">
+              {{ getStudentName(inscription.student) }}
+            </td>
+          </ng-container>
+
+          <!-- Student Email Column -->
+          <ng-container matColumnDef="studentEmail">
+            <th mat-header-cell *matHeaderCellDef>Email</th>
+            <td mat-cell *matCellDef="let inscription">
+              {{ inscription.student?.email || 'N/A' }}
+            </td>
+          </ng-container>
+
+          <!-- Enrollment Date Column -->
+          <ng-container matColumnDef="enrollmentDate">
+            <th mat-header-cell *matHeaderCellDef>Enrollment Date</th>
+            <td mat-cell *matCellDef="let inscription">
+              {{ formatDate(inscription.enrollmentDate) }}
+            </td>
+          </ng-container>
+
+          <!-- Status Column -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let inscription">
+              <mat-chip [color]="getStatusColor(inscription.status)" highlighted>
+                {{ inscription.status | titlecase }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let inscription">
+              <button mat-icon-button color="warn" (click)="onUnenroll(inscription)" matTooltip="Unenroll student"
+                [disabled]="inscription.status === 'cancelled'">
+                <mat-icon>remove_circle</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+
+      <ng-template #noStudents>
+        <div class="no-data">
+          <mat-icon>people</mat-icon>
+          <p>No students enrolled in this course yet.</p>
+        </div>
+      </ng-template>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<ng-template #loadingOrNotFound>
+  <div class="loading-container">
+    <div *ngIf="courses().length === 0; else notFound" class="loading">
+      <p>Loading course details...</p>
+    </div>
+    <ng-template #notFound>
+      <div class="not-found">
+        <mat-icon>error_outline</mat-icon>
+        <p>Course not found.</p>
+        <button mat-button color="primary" (click)="goBack()">Back to Courses</button>
+      </div>
+    </ng-template>
+  </div>
+</ng-template>

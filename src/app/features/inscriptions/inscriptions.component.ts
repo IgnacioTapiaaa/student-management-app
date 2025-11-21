@@ -52,37 +52,41 @@ export class InscriptionsComponent {
 
     if (formData.editingId !== null) {
       console.log('[InscriptionsComponent] Updating inscription with ID:', formData.editingId);
-      const success = this.inscriptionsService.updateInscription(
+      this.inscriptionsService.updateInscription(
         formData.editingId,
         formData.data
-      );
-      console.log('[InscriptionsComponent] Update result:', success);
-
-      if (success) {
-        this.snackBar.open('Inscription updated successfully', 'Close', {
-          duration: 3000
-        });
-        this.resetEditMode();
-      } else {
-        this.snackBar.open('Failed to update inscription', 'Close', {
-          duration: 3000
-        });
-      }
+      ).subscribe({
+        next: (updatedInscription) => {
+          console.log('[InscriptionsComponent] Inscription updated:', updatedInscription);
+          this.snackBar.open('Inscription updated successfully', 'Close', {
+            duration: 3000
+          });
+          this.resetEditMode();
+        },
+        error: (error) => {
+          console.error('[InscriptionsComponent] Update error:', error);
+          this.snackBar.open('Failed to update inscription', 'Close', {
+            duration: 3000
+          });
+        }
+      });
     } else {
       console.log('[InscriptionsComponent] Adding new inscription');
-      const newInscription = this.inscriptionsService.addInscription(formData.data);
-      console.log('[InscriptionsComponent] New inscription created:', newInscription);
-
-      if (newInscription) {
-        this.snackBar.open('Inscription added successfully', 'Close', {
-          duration: 3000
-        });
-        this.resetEditMode();
-      } else {
-        this.snackBar.open('Failed to add inscription. Please check course capacity and duplicate enrollments.', 'Close', {
-          duration: 5000
-        });
-      }
+      this.inscriptionsService.addInscription(formData.data).subscribe({
+        next: (newInscription) => {
+          console.log('[InscriptionsComponent] New inscription created:', newInscription);
+          this.snackBar.open('Inscription added successfully', 'Close', {
+            duration: 3000
+          });
+          this.resetEditMode();
+        },
+        error: (error) => {
+          console.error('[InscriptionsComponent] Add error:', error);
+          this.snackBar.open('Failed to add inscription. Please check course capacity and duplicate enrollments.', 'Close', {
+            duration: 5000
+          });
+        }
+      });
     }
   }
 
@@ -113,21 +117,23 @@ export class InscriptionsComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        const success = this.inscriptionsService.deleteInscription(inscription.id);
+        this.inscriptionsService.deleteInscription(inscription.id).subscribe({
+          next: () => {
+            this.snackBar.open('Inscription deleted successfully', 'Close', {
+              duration: 3000
+            });
 
-        if (success) {
-          this.snackBar.open('Inscription deleted successfully', 'Close', {
-            duration: 3000
-          });
-
-          if (this.editingInscription()?.id === inscription.id) {
-            this.resetEditMode();
+            if (this.editingInscription()?.id === inscription.id) {
+              this.resetEditMode();
+            }
+          },
+          error: (error) => {
+            console.error('[InscriptionsComponent] Delete error:', error);
+            this.snackBar.open('Failed to delete inscription', 'Close', {
+              duration: 3000
+            });
           }
-        } else {
-          this.snackBar.open('Failed to delete inscription', 'Close', {
-            duration: 3000
-          });
-        }
+        });
       }
     });
   }
@@ -156,21 +162,23 @@ export class InscriptionsComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        const success = this.inscriptionsService.cancelInscription(inscription.id);
+        this.inscriptionsService.cancelInscription(inscription.id).subscribe({
+          next: () => {
+            this.snackBar.open('Inscription cancelled successfully', 'Close', {
+              duration: 3000
+            });
 
-        if (success) {
-          this.snackBar.open('Inscription cancelled successfully', 'Close', {
-            duration: 3000
-          });
-
-          if (this.editingInscription()?.id === inscription.id) {
-            this.resetEditMode();
+            if (this.editingInscription()?.id === inscription.id) {
+              this.resetEditMode();
+            }
+          },
+          error: (error) => {
+            console.error('[InscriptionsComponent] Cancel error:', error);
+            this.snackBar.open('Failed to cancel inscription', 'Close', {
+              duration: 3000
+            });
           }
-        } else {
-          this.snackBar.open('Failed to cancel inscription', 'Close', {
-            duration: 3000
-          });
-        }
+        });
       }
     });
   }

@@ -1,6 +1,7 @@
 {
-  "name": "student-management-app",
-  "version": "0.0.0",
+  "name": "3pf-ignacio-tapia",
+  "version": "1.0.0",
+  "description": "Student Management System - Final Project",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",

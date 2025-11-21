@@ -77,6 +77,15 @@
           <td mat-cell *matCellDef="let course" class="actions-column">
             <button
               mat-icon-button
+              color="accent"
+              (click)="onViewDetails(course)"
+              aria-label="View course details"
+              matTooltip="View Details">
+              <mat-icon>visibility</mat-icon>
+            </button>
+            <button
+              *ngIf="isAdmin()"
+              mat-icon-button
               color="primary"
               (click)="onEdit(course)"
               aria-label="Edit course"
@@ -84,6 +93,7 @@
               <mat-icon>edit</mat-icon>
             </button>
             <button
+              *ngIf="isAdmin()"
               mat-icon-button
               color="warn"
               (click)="onDelete(course)"

@@ -48,30 +48,41 @@ export class StudentsComponent {
 
     if (formData.editingId !== null) {
       console.log('[StudentsComponent] Updating student with ID:', formData.editingId);
-      const success = this.studentsService.updateStudent(
+      this.studentsService.updateStudent(
         formData.editingId,
         formData.data
-      );
-      console.log('[StudentsComponent] Update result:', success);
-
-      if (success) {
-        this.snackBar.open('Student updated successfully', 'Close', {
-          duration: 3000
-        });
-        this.resetEditMode();
-      } else {
-        this.snackBar.open('Failed to update student', 'Close', {
-          duration: 3000
-        });
-      }
+      ).subscribe({
+        next: (updatedStudent) => {
+          console.log('[StudentsComponent] Student updated:', updatedStudent);
+          this.snackBar.open('Student updated successfully', 'Close', {
+            duration: 3000
+          });
+          this.resetEditMode();
+        },
+        error: (error) => {
+          console.error('[StudentsComponent] Update error:', error);
+          this.snackBar.open('Failed to update student', 'Close', {
+            duration: 3000
+          });
+        }
+      });
     } else {
       console.log('[StudentsComponent] Adding new student');
-      const newStudent = this.studentsService.addStudent(formData.data);
-      console.log('[StudentsComponent] New student created:', newStudent);
-      this.snackBar.open('Student added successfully', 'Close', {
-        duration: 3000
+      this.studentsService.addStudent(formData.data).subscribe({
+        next: (newStudent) => {
+          console.log('[StudentsComponent] New student created:', newStudent);
+          this.snackBar.open('Student added successfully', 'Close', {
+            duration: 3000
+          });
+          this.resetEditMode();
+        },
+        error: (error) => {
+          console.error('[StudentsComponent] Add error:', error);
+          this.snackBar.open('Failed to add student', 'Close', {
+            duration: 3000
+          });
+        }
       });
-      this.resetEditMode();
     }
   }
 
@@ -96,21 +107,23 @@ export class StudentsComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        const success = this.studentsService.deleteStudent(student.id);
+        this.studentsService.deleteStudent(student.id).subscribe({
+          next: () => {
+            this.snackBar.open('Student deleted successfully', 'Close', {
+              duration: 3000
+            });
 
-        if (success) {
-          this.snackBar.open('Student deleted successfully', 'Close', {
-            duration: 3000
-          });
-
-          if (this.editingStudent()?.id === student.id) {
-            this.resetEditMode();
+            if (this.editingStudent()?.id === student.id) {
+              this.resetEditMode();
+            }
+          },
+          error: (error) => {
+            console.error('[StudentsComponent] Delete error:', error);
+            this.snackBar.open('Failed to delete student', 'Close', {
+              duration: 3000
+            });
           }
-        } else {
-          this.snackBar.open('Failed to delete student', 'Close', {
-            duration: 3000
-          });
-        }
+        });
       }
     });
   }

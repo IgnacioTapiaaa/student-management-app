@@ -1,59 +1,98 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError, tap, switchMap } from 'rxjs/operators';
 import { Inscription, CreateInscription, UpdateInscription, InscriptionStatus } from '../models/inscription.interface';
 import { CoursesService } from './courses.service';
 import { StudentsService } from './students.service';
+import { environment } from '../../../environments/environment.development';
 
 @Injectable({
   providedIn: 'root'
 })
 export class InscriptionsService {
+  private http = inject(HttpClient);
   private coursesService = inject(CoursesService);
   private studentsService = inject(StudentsService);
+  private apiUrl = `${environment.apiUrl}/inscriptions`;
 
-  private inscriptionsSignal = signal<Inscription[]>(this.getInitialData());
+  // Writable signal for manual updates after mutations
+  private inscriptionsWritableSignal = signal<Inscription[]>([]);
 
-  public readonly inscriptions = this.inscriptionsSignal.asReadonly();
+  // Public readonly signal
+  public readonly inscriptions = computed(() => this.inscriptionsWritableSignal());
 
-  public readonly totalInscriptions = computed(() => this.inscriptionsSignal().length);
+  // Computed signals for stats
+  public readonly totalInscriptions = computed(() => this.inscriptions().length);
 
   public readonly activeInscriptions = computed(() =>
-    this.inscriptionsSignal().filter(i => i.status === 'active').length
+    this.inscriptions().filter(i => i.status === 'active').length
   );
 
   public readonly completedInscriptions = computed(() =>
-    this.inscriptionsSignal().filter(i => i.status === 'completed').length
+    this.inscriptions().filter(i => i.status === 'completed').length
   );
 
   public readonly cancelledInscriptions = computed(() =>
-    this.inscriptionsSignal().filter(i => i.status === 'cancelled').length
+    this.inscriptions().filter(i => i.status === 'cancelled').length
   );
 
-  private nextId = 6;
+  constructor() {
+    // Load initial data
+    this.loadInscriptions();
+  }
 
-  addInscription(inscription: CreateInscription): Inscription | null {
+  /**
+   * Load all inscriptions from API
+   */
+  private loadInscriptions(): void {
+    this.http.get<Inscription[]>(this.apiUrl).pipe(
+      catchError(this.handleError)
+    ).subscribe({
+      next: (inscriptions) => {
+        this.inscriptionsWritableSignal.set(inscriptions);
+      },
+      error: (error) => {
+        console.error('Error loading inscriptions:', error);
+        this.inscriptionsWritableSignal.set([]);
+      }
+    });
+  }
+
+  /**
+   * Refresh inscriptions data from API
+   */
+  refreshInscriptions(): void {
+    this.loadInscriptions();
+  }
+
+  /**
+   * Add a new inscription via API
+   */
+  addInscription(inscription: CreateInscription): Observable<Inscription> {
     console.log('[InscriptionsService] addInscription called with:', inscription);
 
     // Validate student exists
     const student = this.studentsService.getStudentById(inscription.studentId);
     if (!student) {
       console.log('[InscriptionsService] Student not found:', inscription.studentId);
-      return null;
+      return throwError(() => new Error('Student not found'));
     }
 
     // Validate course exists and has capacity
     const course = this.coursesService.getCourseById(inscription.courseId);
     if (!course) {
       console.log('[InscriptionsService] Course not found:', inscription.courseId);
-      return null;
+      return throwError(() => new Error('Course not found'));
     }
 
     if (!this.coursesService.canEnroll(inscription.courseId)) {
       console.log('[InscriptionsService] Course at capacity:', course.enrolled, '/', course.capacity);
-      return null;
+      return throwError(() => new Error('Course is full'));
     }
 
     // Check if student is already enrolled in this course
-    const existingInscription = this.inscriptionsSignal().find(
+    const existingInscription = this.inscriptions().find(
       i => i.studentId === inscription.studentId &&
            i.courseId === inscription.courseId &&
            (i.status === 'active' || i.status === 'completed')
@@ -61,47 +100,51 @@ export class InscriptionsService {
 
     if (existingInscription) {
       console.log('[InscriptionsService] Duplicate enrollment detected:', existingInscription);
-      return null;
+      return throwError(() => new Error('Student is already enrolled in this course'));
     }
 
-    const newInscription: Inscription = {
-      ...inscription,
-      id: this.nextId++
-    };
-    console.log('[InscriptionsService] New inscription object:', newInscription);
+    return this.http.post<Inscription>(this.apiUrl, inscription).pipe(
+      switchMap(newInscription => {
+        console.log('[InscriptionsService] Inscription created:', newInscription);
+        // Update local signal
+        this.inscriptionsWritableSignal.update(inscriptions => [...inscriptions, newInscription]);
 
-    this.inscriptionsSignal.update(inscriptions => {
-      const updated = [...inscriptions, newInscription];
-      console.log('[InscriptionsService] Signal updated. Total inscriptions:', updated.length);
-      return updated;
-    });
-
-    // Increment course enrollment
-    this.coursesService.incrementEnrollment(inscription.courseId);
-    console.log('[InscriptionsService] Course enrollment incremented');
-
-    return newInscription;
+        // Increment course enrollment and return the inscription
+        return this.coursesService.incrementEnrollment(inscription.courseId).pipe(
+          tap(() => console.log('[InscriptionsService] Course enrollment incremented')),
+          switchMap(() => [newInscription])
+        );
+      }),
+      catchError(this.handleError)
+    );
   }
 
-  updateInscription(id: number, changes: UpdateInscription): boolean {
+  /**
+   * Update an existing inscription via API
+   */
+  updateInscription(id: number, changes: UpdateInscription): Observable<Inscription> {
     console.log('[InscriptionsService] updateInscription called with ID:', id, 'Changes:', changes);
-    const inscriptions = this.inscriptionsSignal();
-    const index = inscriptions.findIndex(i => i.id === id);
 
-    if (index === -1) {
+    const currentInscription = this.getInscriptionById(id);
+
+    if (!currentInscription) {
       console.log('[InscriptionsService] Inscription not found with ID:', id);
-      return false;
+      return throwError(() => new Error('Inscription not found'));
     }
 
-    const currentInscription = inscriptions[index];
     console.log('[InscriptionsService] Current inscription:', currentInscription);
+
+    const url = `${this.apiUrl}/${id}`;
+
+    // Determine if we need to adjust enrollment count
+    let enrollmentAdjustment$: Observable<any> | null = null;
 
     // If status is changing from active to cancelled/completed, decrement enrollment
     if (changes.status &&
         currentInscription.status === 'active' &&
         (changes.status === 'cancelled' || changes.status === 'completed')) {
       console.log('[InscriptionsService] Status changing from active, decrementing enrollment');
-      this.coursesService.decrementEnrollment(currentInscription.courseId);
+      enrollmentAdjustment$ = this.coursesService.decrementEnrollment(currentInscription.courseId);
     }
 
     // If status is changing from cancelled to active, increment enrollment
@@ -111,108 +154,132 @@ export class InscriptionsService {
       console.log('[InscriptionsService] Status changing to active, checking capacity');
       if (!this.coursesService.canEnroll(currentInscription.courseId)) {
         console.log('[InscriptionsService] Cannot reactivate - course at capacity');
-        return false;
+        return throwError(() => new Error('Cannot reactivate: course is full'));
       }
-      this.coursesService.incrementEnrollment(currentInscription.courseId);
+      enrollmentAdjustment$ = this.coursesService.incrementEnrollment(currentInscription.courseId);
     }
 
-    this.inscriptionsSignal.update(inscriptions =>
-      inscriptions.map(inscription =>
-        inscription.id === id
-          ? { ...inscription, ...changes }
-          : inscription
-      )
-    );
-    console.log('[InscriptionsService] Inscription updated successfully');
+    return this.http.put<Inscription>(url, changes).pipe(
+      switchMap(updatedInscription => {
+        console.log('[InscriptionsService] Inscription updated:', updatedInscription);
+        // Update local signal
+        this.inscriptionsWritableSignal.update(inscriptions =>
+          inscriptions.map(inscription =>
+            inscription.id === id ? { ...inscription, ...updatedInscription } : inscription
+          )
+        );
 
-    return true;
+        // If we need to adjust enrollment, do it and return the inscription
+        if (enrollmentAdjustment$) {
+          return enrollmentAdjustment$.pipe(
+            switchMap(() => [updatedInscription])
+          );
+        }
+
+        return [updatedInscription];
+      }),
+      catchError(this.handleError)
+    );
   }
 
-  deleteInscription(id: number): boolean {
-    const inscriptions = this.inscriptionsSignal();
-    const inscription = inscriptions.find(i => i.id === id);
+  /**
+   * Delete an inscription via API
+   */
+  deleteInscription(id: number): Observable<void> {
+    console.log('[InscriptionsService] deleteInscription called with ID:', id);
+
+    const inscription = this.getInscriptionById(id);
 
     if (!inscription) {
-      return false;
+      return throwError(() => new Error('Inscription not found'));
     }
 
-    // If inscription was active, decrement course enrollment
-    if (inscription.status === 'active') {
-      this.coursesService.decrementEnrollment(inscription.courseId);
-    }
+    const url = `${this.apiUrl}/${id}`;
+    return this.http.delete<void>(url).pipe(
+      switchMap(() => {
+        console.log('[InscriptionsService] Inscription deleted');
+        // Update local signal
+        this.inscriptionsWritableSignal.update(inscriptions =>
+          inscriptions.filter(i => i.id !== id)
+        );
 
-    this.inscriptionsSignal.update(inscriptions =>
-      inscriptions.filter(i => i.id !== id)
+        // If inscription was active, decrement course enrollment
+        if (inscription.status === 'active') {
+          return this.coursesService.decrementEnrollment(inscription.courseId).pipe(
+            switchMap(() => [undefined])
+          );
+        }
+
+        return [undefined];
+      }),
+      catchError(this.handleError)
     );
-
-    return true;
   }
 
+  /**
+   * Get an inscription by ID (from local signal)
+   */
   getInscriptionById(id: number): Inscription | undefined {
-    return this.inscriptionsSignal().find(i => i.id === id);
+    return this.inscriptions().find(i => i.id === id);
   }
 
+  /**
+   * Get inscriptions by student ID (from local signal)
+   */
   getInscriptionsByStudentId(studentId: number): Inscription[] {
-    return this.inscriptionsSignal().filter(i => i.studentId === studentId);
+    return this.inscriptions().filter(i => i.studentId === studentId);
   }
 
+  /**
+   * Get inscriptions by course ID (from local signal)
+   */
   getInscriptionsByCourseId(courseId: number): Inscription[] {
-    return this.inscriptionsSignal().filter(i => i.courseId === courseId);
+    return this.inscriptions().filter(i => i.courseId === courseId);
   }
 
+  /**
+   * Get inscriptions by status (from local signal)
+   */
   getInscriptionsByStatus(status: InscriptionStatus): Inscription[] {
-    return this.inscriptionsSignal().filter(i => i.status === status);
+    return this.inscriptions().filter(i => i.status === status);
   }
 
-  cancelInscription(id: number): boolean {
+  /**
+   * Cancel an inscription
+   */
+  cancelInscription(id: number): Observable<Inscription> {
     return this.updateInscription(id, { status: 'cancelled' });
   }
 
-  completeInscription(id: number): boolean {
+  /**
+   * Complete an inscription
+   */
+  completeInscription(id: number): Observable<Inscription> {
     return this.updateInscription(id, { status: 'completed' });
   }
 
-  reactivateInscription(id: number): boolean {
+  /**
+   * Reactivate an inscription
+   */
+  reactivateInscription(id: number): Observable<Inscription> {
     return this.updateInscription(id, { status: 'active' });
   }
 
-  private getInitialData(): Inscription[] {
-    return [
-      {
-        id: 1,
-        studentId: 1, // Juan Pérez
-        courseId: 1,  // Desarrollo Web con Angular
-        enrollmentDate: new Date('2025-01-10'),
-        status: 'active'
-      },
-      {
-        id: 2,
-        studentId: 2, // María González
-        courseId: 2,  // Bases de Datos Avanzadas
-        enrollmentDate: new Date('2025-01-25'),
-        status: 'active'
-      },
-      {
-        id: 3,
-        studentId: 3, // Carlos López
-        courseId: 3,  // Algoritmos y Estructuras de Datos
-        enrollmentDate: new Date('2025-01-15'),
-        status: 'active'
-      },
-      {
-        id: 4,
-        studentId: 1, // Juan Pérez
-        courseId: 4,  // Programación en TypeScript
-        enrollmentDate: new Date('2025-02-20'),
-        status: 'active'
-      },
-      {
-        id: 5,
-        studentId: 4, // Ana Martínez
-        courseId: 5,  // Arquitectura de Software
-        enrollmentDate: new Date('2025-02-10'),
-        status: 'active'
-      }
-    ];
+  /**
+   * Handle HTTP errors
+   */
+  private handleError(error: HttpErrorResponse): Observable<never> {
+    let errorMessage = 'An error occurred';
+
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      // Server-side error
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    }
+
+    console.error('[InscriptionsService] HTTP Error:', errorMessage);
+    return throwError(() => new Error(errorMessage));
   }
 }

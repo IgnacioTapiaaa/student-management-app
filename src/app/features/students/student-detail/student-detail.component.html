@@ -1,0 +1,127 @@
+<div class="student-detail-container" *ngIf="student(); else loadingOrNotFound">
+  <!-- Header with Back Button -->
+  <div class="header">
+    <button mat-raised-button (click)="goBack()">
+      <mat-icon>arrow_back</mat-icon>
+      Back to Students
+    </button>
+    <h1>Student Details</h1>
+  </div>
+
+  <!-- Student Information Card -->
+  <mat-card class="student-info-card">
+    <mat-card-header>
+      <mat-card-title>Personal Information</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">ID:</span>
+          <span class="value">{{ student()!.id }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">First Name:</span>
+          <span class="value">{{ student()!.firstName }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Last Name:</span>
+          <span class="value">{{ student()!.lastName }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Age:</span>
+          <span class="value">{{ student()!.age }} years</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Email:</span>
+          <span class="value">{{ student()!.email }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Enrolled Courses Section -->
+  <mat-card class="courses-card">
+    <mat-card-header>
+      <mat-card-title>Enrolled Courses</mat-card-title>
+      <mat-card-subtitle>
+        {{ studentInscriptions().length }}
+        {{ studentInscriptions().length === 1 ? 'course' : 'courses' }}
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="table-container" *ngIf="studentInscriptions().length > 0; else noCourses">
+        <table mat-table [dataSource]="studentInscriptions()" class="mat-elevation-z2">
+          <!-- Course Name Column -->
+          <ng-container matColumnDef="courseName">
+            <th mat-header-cell *matHeaderCellDef>Course Name</th>
+            <td mat-cell *matCellDef="let inscription">
+              {{ inscription.course?.name || 'N/A' }}
+            </td>
+          </ng-container>
+
+          <!-- Course Code Column -->
+          <ng-container matColumnDef="courseCode">
+            <th mat-header-cell *matHeaderCellDef>Course Code</th>
+            <td mat-cell *matCellDef="let inscription">
+              {{ inscription.course?.code || 'N/A' }}
+            </td>
+          </ng-container>
+
+          <!-- Enrollment Date Column -->
+          <ng-container matColumnDef="enrollmentDate">
+            <th mat-header-cell *matHeaderCellDef>Enrollment Date</th>
+            <td mat-cell *matCellDef="let inscription">
+              {{ formatDate(inscription.enrollmentDate) }}
+            </td>
+          </ng-container>
+
+          <!-- Status Column -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let inscription">
+              <mat-chip [color]="getStatusColor(inscription.status)" highlighted>
+                {{ inscription.status | titlecase }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let inscription">
+              <button mat-icon-button color="warn" (click)="onUnenroll(inscription)" matTooltip="Unenroll from course"
+                [disabled]="inscription.status === 'cancelled'">
+                <mat-icon>remove_circle</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+
+      <ng-template #noCourses>
+        <div class="no-data">
+          <mat-icon>school</mat-icon>
+          <p>This student is not enrolled in any courses yet.</p>
+        </div>
+      </ng-template>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<ng-template #loadingOrNotFound>
+  <div class="loading-container">
+    <div *ngIf="students().length === 0; else notFound" class="loading">
+      <p>Loading student details...</p>
+    </div>
+    <ng-template #notFound>
+      <div class="not-found">
+        <mat-icon>error_outline</mat-icon>
+        <p>Student not found.</p>
+        <button mat-button color="primary" (click)="goBack()">Back to Students</button>
+      </div>
+    </ng-template>
+  </div>
+</ng-template>
