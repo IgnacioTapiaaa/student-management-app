@@ -1,21 +1,33 @@
-import { Component, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Store } from '@ngrx/store';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { UsersService } from '../../core/services/users.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCardModule } from '@angular/material/card';
 import { User, CreateUser } from '../../core/models/user.interface';
 import { UserFormComponent } from './components/user-form/user-form.component';
 import { UserListComponent } from './components/user-list/user-list.component';
 import { UserStatsComponent } from './components/user-stats/user-stats.component';
 import { ConfirmDialogComponent } from '../students/confirm-dialog.component';
+import * as UsersActions from './store/users.actions';
+import * as UsersSelectors from './store/users.selectors';
 
+/**
+ * Users Component
+ * Main container component for users management
+ * Uses NGRX Store for state management
+ */
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-users',
   standalone: true,
   imports: [
     CommonModule,
     MatSnackBarModule,
     MatDialogModule,
+    MatProgressSpinnerModule,
+    MatCardModule,
     UserFormComponent,
     UserListComponent,
     UserStatsComponent
@@ -23,20 +35,24 @@ import { ConfirmDialogComponent } from '../students/confirm-dialog.component';
   templateUrl: './users.component.html',
   styleUrls: ['./users.component.scss']
 })
-export class UsersComponent {
-  private usersService = inject(UsersService);
-  private snackBar = inject(MatSnackBar);
+export class UsersComponent implements OnInit {
+  private store = inject(Store);
   private dialog = inject(MatDialog);
 
-  // Signals for form state
-  isEditMode = signal(false);
+  // Local UI state
+  isEditMode = signal<boolean>(false);
   editingUser = signal<User | undefined>(undefined);
 
-  // Service signals
-  users = this.usersService.users;
-  totalUsers = this.usersService.totalUsers;
-  adminUsers = this.usersService.adminUsers;
-  regularUsers = this.usersService.regularUsers;
+  // Store selectors - Observable streams
+  users$ = this.store.select(UsersSelectors.selectAllUsers);
+  loading$ = this.store.select(UsersSelectors.selectUsersLoading);
+  error$ = this.store.select(UsersSelectors.selectUsersError);
+  totalUsers$ = this.store.select(UsersSelectors.selectTotalUsers);
+  adminUsers$ = this.store.select(UsersSelectors.selectAdminCount);
+  regularUsers$ = this.store.select(UsersSelectors.selectUserCount);
+
+  // View model - combines multiple selectors
+  viewModel$ = this.store.select(UsersSelectors.selectUsersViewModel);
 
   // Computed signals for form
   formTitle = computed(() =>
@@ -47,68 +63,36 @@ export class UsersComponent {
     this.isEditMode() ? 'Update User' : 'Add User'
   );
 
+  ngOnInit(): void {
+    // Dispatch action to load users
+    this.store.dispatch(UsersActions.loadUsers());
+  }
+
   onUserSubmit(userData: CreateUser): void {
     if (this.isEditMode() && this.editingUser()) {
       const userId = this.editingUser()!.id;
-      this.usersService.updateUser(userId, userData).subscribe({
-        next: (updatedUser) => {
-          console.log('[UsersComponent] User updated:', updatedUser);
-          this.snackBar.open('User updated successfully!', 'Close', {
-            duration: 3000,
-            horizontalPosition: 'end',
-            verticalPosition: 'top'
-          });
-          this.cancelEdit();
-        },
-        error: (error) => {
-          console.error('[UsersComponent] Update error:', error);
-          this.snackBar.open('Failed to update user', 'Close', {
-            duration: 3000,
-            horizontalPosition: 'end',
-            verticalPosition: 'top'
-          });
-        }
-      });
+      this.store.dispatch(UsersActions.updateUser({
+        id: userId,
+        changes: userData
+      }));
     } else {
-      // Check if email already exists
-      if (this.usersService.emailExists(userData.email)) {
-        this.snackBar.open('Email already exists!', 'Close', {
-          duration: 5000,
-          horizontalPosition: 'end',
-          verticalPosition: 'top',
-          panelClass: ['error-snackbar']
-        });
-        return;
-      }
-
-      this.usersService.addUser(userData).subscribe({
-        next: (newUser) => {
-          console.log('[UsersComponent] User added:', newUser);
-          this.snackBar.open('User added successfully!', 'Close', {
-            duration: 3000,
-            horizontalPosition: 'end',
-            verticalPosition: 'top'
-          });
-        },
-        error: (error) => {
-          console.error('[UsersComponent] Add error:', error);
-          this.snackBar.open('Failed to add user', 'Close', {
-            duration: 3000,
-            horizontalPosition: 'end',
-            verticalPosition: 'top'
-          });
-        }
-      });
+      this.store.dispatch(UsersActions.addUser({
+        user: userData
+      }));
     }
+
+    this.resetEditMode();
   }
 
   onFormCancel(): void {
-    this.cancelEdit();
+    this.resetEditMode();
   }
 
   onEditUser(user: User): void {
     this.isEditMode.set(true);
     this.editingUser.set(user);
+    this.store.dispatch(UsersActions.selectUser({ id: user.id }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   onDeleteUser(user: User): void {
@@ -121,35 +105,20 @@ export class UsersComponent {
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.usersService.deleteUser(user.id).subscribe({
-          next: () => {
-            this.snackBar.open('User deleted successfully!', 'Close', {
-              duration: 3000,
-              horizontalPosition: 'end',
-              verticalPosition: 'top'
-            });
+      if (result === true) {
+        this.store.dispatch(UsersActions.deleteUser({ id: user.id }));
 
-            // If deleting the user being edited, cancel edit mode
-            if (this.editingUser()?.id === user.id) {
-              this.cancelEdit();
-            }
-          },
-          error: (error) => {
-            console.error('[UsersComponent] Delete error:', error);
-            this.snackBar.open('Failed to delete user', 'Close', {
-              duration: 3000,
-              horizontalPosition: 'end',
-              verticalPosition: 'top'
-            });
-          }
-        });
+        // Reset edit mode if deleting the currently editing user
+        if (this.editingUser()?.id === user.id) {
+          this.resetEditMode();
+        }
       }
     });
   }
 
-  private cancelEdit(): void {
+  private resetEditMode(): void {
     this.isEditMode.set(false);
     this.editingUser.set(undefined);
+    this.store.dispatch(UsersActions.clearSelected());
   }
 }

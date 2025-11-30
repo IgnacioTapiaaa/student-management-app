@@ -1,4 +1,4 @@
-import { Component, OnInit, Output, EventEmitter, Input, effect, inject } from '@angular/core';
+import { Component, OnInit, OnChanges, SimpleChanges, Output, EventEmitter, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -46,7 +46,7 @@ export interface InscriptionFormData {
   templateUrl: './inscription-form.component.html',
   styleUrls: ['./inscription-form.component.scss']
 })
-export class InscriptionFormComponent implements OnInit {
+export class InscriptionFormComponent implements OnInit, OnChanges {
   @Input() formTitle: string = 'Add New Inscription';
   @Input() submitButtonText: string = 'Save Inscription';
   @Input() inscriptionToEdit: Inscription | null = null;
@@ -68,16 +68,31 @@ export class InscriptionFormComponent implements OnInit {
 
   formErrors: string[] = [];
 
-  constructor(private fb: FormBuilder) {
-    effect(() => {
-      if (this.inscriptionToEdit) {
-        this.loadInscriptionData(this.inscriptionToEdit);
-      }
-    });
-  }
+  // compareWith function for mat-select to handle type mismatches
+  compareIds = (a: any, b: any): boolean => {
+    if (a == null || b == null) return false;
+    return a.toString() === b.toString();
+  };
+
+  constructor(private fb: FormBuilder) {}
 
   ngOnInit(): void {
     this.initializeForm();
+    // Load initial data if provided
+    if (this.inscriptionToEdit) {
+      this.loadInscriptionData(this.inscriptionToEdit);
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // React to changes in inscriptionToEdit Input
+    if (changes['inscriptionToEdit'] && !changes['inscriptionToEdit'].firstChange) {
+      if (this.inscriptionToEdit && this.inscriptionForm) {
+        this.loadInscriptionData(this.inscriptionToEdit);
+      } else if (!this.inscriptionToEdit && this.inscriptionForm) {
+        this.resetForm();
+      }
+    }
   }
 
   private initializeForm(): void {
@@ -99,32 +114,32 @@ export class InscriptionFormComponent implements OnInit {
   }
 
   private loadInscriptionData(inscription: Inscription): void {
+    // Convert enrollmentDate to Date object if it's a string
+    const enrollmentDate = inscription.enrollmentDate instanceof Date
+      ? inscription.enrollmentDate
+      : new Date(inscription.enrollmentDate);
+
     this.inscriptionForm.patchValue({
       studentId: inscription.studentId,
       courseId: inscription.courseId,
-      enrollmentDate: inscription.enrollmentDate,
+      enrollmentDate: enrollmentDate,
       status: inscription.status
     });
   }
 
   onSubmit(): void {
-    console.log('[InscriptionForm] onSubmit called');
     this.formErrors = [];
 
-    console.log('[InscriptionForm] Form valid:', this.inscriptionForm.valid);
     if (this.inscriptionForm.invalid) {
-      console.log('[InscriptionForm] Form invalid, marking touched');
       this.inscriptionForm.markAllAsTouched();
       return;
     }
 
     const formValue = this.inscriptionForm.getRawValue();
-    console.log('[InscriptionForm] Form value:', formValue);
 
     // Validation: Check if student exists
     const student = this.studentsService.getStudentById(formValue.studentId!);
     if (!student) {
-      console.log('[InscriptionForm] Student not found');
       this.formErrors.push('Selected student does not exist');
       return;
     }
@@ -132,7 +147,6 @@ export class InscriptionFormComponent implements OnInit {
     // Validation: Check if course exists
     const course = this.coursesService.getCourseById(formValue.courseId!);
     if (!course) {
-      console.log('[InscriptionForm] Course not found');
       this.formErrors.push('Selected course does not exist');
       return;
     }
@@ -141,7 +155,6 @@ export class InscriptionFormComponent implements OnInit {
     if (!this.inscriptionToEdit ||
         (this.inscriptionToEdit.status !== 'active' && formValue.status === 'active')) {
       if (!this.coursesService.canEnroll(formValue.courseId!)) {
-        console.log('[InscriptionForm] Course at full capacity');
         this.formErrors.push(`Course "${course.name}" is at full capacity (${course.enrolled}/${course.capacity})`);
         return;
       }
@@ -156,7 +169,6 @@ export class InscriptionFormComponent implements OnInit {
         );
 
       if (existingInscription) {
-        console.log('[InscriptionForm] Duplicate enrollment detected');
         this.formErrors.push(`Student "${student.firstName} ${student.lastName}" is already enrolled in "${course.name}"`);
         return;
       }
@@ -168,17 +180,14 @@ export class InscriptionFormComponent implements OnInit {
       enrollmentDate: formValue.enrollmentDate ?? new Date(),
       status: formValue.status
     };
-    console.log('[InscriptionForm] Inscription data:', inscriptionData);
 
     const formData: InscriptionFormData = {
       data: inscriptionData,
       editingId: this.inscriptionToEdit?.id ?? null
     };
-    console.log('[InscriptionForm] Emitting form data:', formData);
 
     this.inscriptionSubmit.emit(formData);
     this.resetForm();
-    console.log('[InscriptionForm] Form reset complete');
   }
 
   onCancel(): void {

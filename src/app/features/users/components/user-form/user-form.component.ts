@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, effect, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -27,7 +27,7 @@ import { User, CreateUser, UserRole } from '../../../../core/models/user.interfa
   templateUrl: './user-form.component.html',
   styleUrls: ['./user-form.component.scss']
 })
-export class UserFormComponent implements OnInit {
+export class UserFormComponent implements OnInit, OnChanges {
   @Input() formTitle = 'Add New User';
   @Input() submitButtonText = 'Add User';
   @Input() userToEdit?: User;
@@ -45,20 +45,35 @@ export class UserFormComponent implements OnInit {
     { value: 'user', label: 'Regular User' }
   ];
 
+  // compareWith function for role mat-select to ensure proper matching
+  compareRoles = (a: string, b: string): boolean => {
+    return a === b;
+  };
+
   constructor(private fb: FormBuilder) {
     this.initializeForm();
-
-    // Effect to load user data when userToEdit changes
-    effect(() => {
-      if (this.userToEdit) {
-        this.isEditMode = true;
-        this.loadUserData(this.userToEdit);
-      }
-    });
   }
 
   ngOnInit(): void {
     this.isEditMode = !!this.userToEdit;
+
+    // Load initial data if provided
+    if (this.userToEdit) {
+      this.loadUserData(this.userToEdit);
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // React to changes in userToEdit Input
+    if (changes['userToEdit'] && !changes['userToEdit'].firstChange) {
+      if (this.userToEdit && this.userForm) {
+        this.isEditMode = true;
+        this.loadUserData(this.userToEdit);
+      } else if (!this.userToEdit && this.userForm) {
+        this.isEditMode = false;
+        this.resetForm();
+      }
+    }
   }
 
   private initializeForm(): void {
@@ -73,18 +88,21 @@ export class UserFormComponent implements OnInit {
   }
 
   private loadUserData(user: User): void {
-    this.userForm.patchValue({
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      changePassword: false
-    });
+    // Use setTimeout to ensure mat-select is rendered before setting value
+    setTimeout(() => {
+      this.userForm.patchValue({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        changePassword: false
+      });
 
-    // In edit mode, password is not required by default
-    this.userForm.get('password')?.clearValidators();
-    this.userForm.get('password')?.setValue('');
-    this.userForm.get('password')?.updateValueAndValidity();
+      // In edit mode, password is not required by default
+      this.userForm.get('password')?.clearValidators();
+      this.userForm.get('password')?.setValue('');
+      this.userForm.get('password')?.updateValueAndValidity();
+    }, 200);
   }
 
   onChangePasswordToggle(): void {

@@ -2,7 +2,7 @@
   <button mat-icon-button (click)="toggleSidenav()" aria-label="Toggle sidenav">
     <mat-icon>menu</mat-icon>
   </button>
-  <span appFontSize="20" class="app-title">Student Management System</span>
+  <span appFontSize="20" class="app-title">{{ toolbarTitle$ | async }}</span>
   <span class="spacer"></span>
 
   <!-- User Info and Menu -->

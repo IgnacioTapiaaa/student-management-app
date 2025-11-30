@@ -46,7 +46,9 @@
       <!-- Role Field -->
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Role</mat-label>
-        <mat-select formControlName="role">
+        <mat-select
+          formControlName="role"
+          [compareWith]="compareRoles">
           <mat-option *ngFor="let role of roles" [value]="role.value">
             {{ role.label }}
           </mat-option>

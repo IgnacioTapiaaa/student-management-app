@@ -5,6 +5,23 @@
     <p class="page-subtitle">Manage student course enrollments</p>
   </div>
 
+  <!-- Loading Indicator -->
+  @if (loading$ | async) {
+    <div class="loading-container">
+      <mat-spinner></mat-spinner>
+      <p>Loading inscriptions...</p>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (error$ | async; as error) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <p class="error-message">{{ error }}</p>
+      </mat-card-content>
+    </mat-card>
+  }
+
   <!-- Inscription Form Component -->
   <app-inscription-form
     [formTitle]="formTitle()"
@@ -16,15 +33,15 @@
 
   <!-- Inscription Stats Component -->
   <app-inscription-stats
-    [totalInscriptions]="inscriptionsService.totalInscriptions()"
-    [activeInscriptions]="inscriptionsService.activeInscriptions()"
-    [completedInscriptions]="inscriptionsService.completedInscriptions()"
-    [cancelledInscriptions]="inscriptionsService.cancelledInscriptions()">
+    [totalInscriptions]="(totalInscriptions$ | async) || 0"
+    [activeInscriptions]="(activeInscriptions$ | async) || 0"
+    [completedInscriptions]="0"
+    [cancelledInscriptions]="0">
   </app-inscription-stats>
 
   <!-- Inscription List Component -->
   <app-inscription-list
-    [inscriptions]="inscriptionsService.inscriptions()"
+    [inscriptions]="(inscriptions$ | async) || []"
     (editInscription)="onEditInscription($event)"
     (deleteInscription)="onDeleteInscription($event)"
     (cancelInscription)="onCancelInscription($event)">

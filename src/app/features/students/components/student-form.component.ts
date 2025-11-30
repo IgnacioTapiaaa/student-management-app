@@ -104,17 +104,12 @@ export class StudentFormComponent implements OnInit, OnChanges {
   }
 
   onSubmit(): void {
-    console.log('[StudentForm] onSubmit called');
-    console.log('[StudentForm] Form valid:', this.studentForm.valid);
-
     if (this.studentForm.invalid) {
-      console.log('[StudentForm] Form invalid, marking touched');
       this.studentForm.markAllAsTouched();
       return;
     }
 
     const formValue = this.studentForm.getRawValue();
-    console.log('[StudentForm] Form value:', formValue);
 
     const studentData: CreateStudent = {
       firstName: formValue.firstName,
@@ -122,17 +117,14 @@ export class StudentFormComponent implements OnInit, OnChanges {
       age: formValue.age ?? 0,
       email: formValue.email
     };
-    console.log('[StudentForm] Student data:', studentData);
 
     const formData: StudentFormData = {
       data: studentData,
       editingId: this.studentToEdit?.id ?? null
     };
-    console.log('[StudentForm] Emitting form data:', formData);
 
     this.studentSubmit.emit(formData);
     this.resetForm();
-    console.log('[StudentForm] Form reset complete');
   }
 
   onCancel(): void {

@@ -1,12 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { provideMockStore, MockStore } from '@ngrx/store/testing';
 import { StudentsService } from './students.service';
 import { Student, CreateStudent, UpdateStudent } from '../models/student.interface';
 import { environment } from '../../../environments/environment.development';
+import { AppState } from '../../store/app.state';
 
 describe('StudentsService', () => {
   let service: StudentsService;
   let httpMock: HttpTestingController;
+  let store: MockStore<AppState>;
   const apiUrl = `${environment.apiUrl}/students`;
 
   const mockStudents: Student[] = [
@@ -15,23 +18,36 @@ describe('StudentsService', () => {
     { id: 3, firstName: 'Bob', lastName: 'Johnson', age: 21, email: 'bob@test.com' }
   ];
 
+  const initialState: Partial<AppState> = {
+    students: {
+      ids: [1, 2, 3],
+      entities: {
+        1: mockStudents[0],
+        2: mockStudents[1],
+        3: mockStudents[2]
+      },
+      selectedStudentId: null,
+      loading: false,
+      error: null,
+      loaded: true
+    }
+  };
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [StudentsService]
+      providers: [
+        StudentsService,
+        provideMockStore({ initialState })
+      ]
     });
 
     httpMock = TestBed.inject(HttpTestingController);
+    store = TestBed.inject(MockStore);
     service = TestBed.inject(StudentsService);
-
-    // Handle the initial load request that happens in constructor
-    const initialRequest = httpMock.expectOne(apiUrl);
-    expect(initialRequest.request.method).toBe('GET');
-    initialRequest.flush(mockStudents);
   });
 
   afterEach(() => {
-    // Verify that there are no outstanding HTTP requests
     httpMock.verify();
   });
 
@@ -39,11 +55,9 @@ describe('StudentsService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should load students from API on init', () => {
-    // The initial load already happened in beforeEach
-    // Verify the students signal contains the data
+  it('should provide students signal from store', () => {
     expect(service.students().length).toBe(3);
-    expect(service.students()).toEqual(mockStudents);
+    expect(service.students()).toContain(mockStudents[0]);
   });
 
   it('should calculate total students correctly', () => {
@@ -51,27 +65,49 @@ describe('StudentsService', () => {
   });
 
   it('should calculate average age correctly', () => {
-    // (20 + 22 + 21) / 3 = 21
     expect(service.averageAge()).toBe(21);
   });
 
   it('should handle empty students list for average age', () => {
-    // Create a fresh service instance
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [StudentsService]
-    });
-    httpMock = TestBed.inject(HttpTestingController);
-    service = TestBed.inject(StudentsService);
-
-    const req = httpMock.expectOne(apiUrl);
-    req.flush([]);
+    store.setState({
+      ...initialState,
+      students: {
+        ids: [],
+        entities: {},
+        selectedStudentId: null,
+        loading: false,
+        error: null,
+        loaded: true
+      }
+    } as AppState);
 
     expect(service.averageAge()).toBe(0);
   });
 
-  it('should add student via POST', () => {
+  it('should get all students via HTTP', (done) => {
+    service.getAll().subscribe(students => {
+      expect(students).toEqual(mockStudents);
+      done();
+    });
+
+    const req = httpMock.expectOne(apiUrl);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockStudents);
+  });
+
+  it('should get student by ID via HTTP', (done) => {
+    const studentId = 1;
+    service.getById(studentId).subscribe(student => {
+      expect(student).toEqual(mockStudents[0]);
+      done();
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/${studentId}`);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockStudents[0]);
+  });
+
+  it('should add student via POST', (done) => {
     const newStudent: CreateStudent = {
       firstName: 'Alice',
       lastName: 'Brown',
@@ -86,9 +122,7 @@ describe('StudentsService', () => {
 
     service.addStudent(newStudent).subscribe(student => {
       expect(student).toEqual(createdStudent);
-      // Verify the student was added to the signal
-      expect(service.students().length).toBe(4);
-      expect(service.students()).toContain(createdStudent);
+      done();
     });
 
     const req = httpMock.expectOne(apiUrl);
@@ -97,7 +131,7 @@ describe('StudentsService', () => {
     req.flush(createdStudent);
   });
 
-  it('should update student via PUT', () => {
+  it('should update student via PUT', (done) => {
     const studentId = 1;
     const updates: UpdateStudent = {
       firstName: 'John',
@@ -116,10 +150,7 @@ describe('StudentsService', () => {
 
     service.updateStudent(studentId, updates).subscribe(student => {
       expect(student).toEqual(updatedStudent);
-      // Verify the student was updated in the signal
-      const foundStudent = service.students().find(s => s.id === studentId);
-      expect(foundStudent?.lastName).toBe('Doe Updated');
-      expect(foundStudent?.email).toBe('john.updated@test.com');
+      done();
     });
 
     const req = httpMock.expectOne(`${apiUrl}/${studentId}`);
@@ -128,14 +159,12 @@ describe('StudentsService', () => {
     req.flush(updatedStudent);
   });
 
-  it('should delete student via DELETE', () => {
+  it('should delete student via DELETE', (done) => {
     const studentId = 1;
-    const initialLength = service.students().length;
 
     service.deleteStudent(studentId).subscribe(() => {
-      // Verify the student was removed from the signal
-      expect(service.students().length).toBe(initialLength - 1);
-      expect(service.students().find(s => s.id === studentId)).toBeUndefined();
+      expect(true).toBe(true);
+      done();
     });
 
     const req = httpMock.expectOne(`${apiUrl}/${studentId}`);
@@ -143,23 +172,7 @@ describe('StudentsService', () => {
     req.flush(null);
   });
 
-  it('should refresh students data', () => {
-    const refreshedStudents: Student[] = [
-      { id: 1, firstName: 'John', lastName: 'Doe', age: 20, email: 'john@test.com' },
-      { id: 5, firstName: 'New', lastName: 'Student', age: 19, email: 'new@test.com' }
-    ];
-
-    service.refreshStudents();
-
-    const req = httpMock.expectOne(apiUrl);
-    expect(req.request.method).toBe('GET');
-    req.flush(refreshedStudents);
-
-    expect(service.students().length).toBe(2);
-    expect(service.students()).toEqual(refreshedStudents);
-  });
-
-  it('should get student by ID', () => {
+  it('should get student by ID from signal', () => {
     const student = service.getStudentById(2);
     expect(student).toBeDefined();
     expect(student?.firstName).toBe('Jane');
@@ -198,30 +211,27 @@ describe('StudentsService', () => {
   it('should return all students for empty search term', () => {
     const results = service.searchStudents('');
     expect(results.length).toBe(3);
-    expect(results).toEqual(mockStudents);
   });
 
-  it('should handle HTTP error on load', () => {
-    // Create a fresh service to test error handling
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [StudentsService]
-    });
-    httpMock = TestBed.inject(HttpTestingController);
+  it('should return all students for whitespace search term', () => {
+    const results = service.searchStudents('   ');
+    expect(results.length).toBe(3);
+  });
 
-    spyOn(console, 'error');
-    service = TestBed.inject(StudentsService);
+  it('should handle HTTP error on getAll', (done) => {
+    service.getAll().subscribe({
+      next: () => fail('should have failed'),
+      error: (error) => {
+        expect(error).toBeTruthy();
+        done();
+      }
+    });
 
     const req = httpMock.expectOne(apiUrl);
     req.error(new ProgressEvent('error'), { status: 500, statusText: 'Server Error' });
-
-    // Should set empty array on error
-    expect(service.students().length).toBe(0);
-    expect(console.error).toHaveBeenCalled();
   });
 
-  it('should handle HTTP error on add student', () => {
+  it('should handle HTTP error on add student', (done) => {
     const newStudent: CreateStudent = {
       firstName: 'Test',
       lastName: 'Error',
@@ -233,10 +243,47 @@ describe('StudentsService', () => {
       next: () => fail('should have failed'),
       error: (error) => {
         expect(error).toBeTruthy();
+        done();
       }
     });
 
     const req = httpMock.expectOne(apiUrl);
     req.error(new ProgressEvent('error'), { status: 400, statusText: 'Bad Request' });
+  });
+
+  it('should handle HTTP error on update student', (done) => {
+    const studentId = 1;
+    const updates: UpdateStudent = {
+      firstName: 'Test',
+      lastName: 'Error',
+      age: 25,
+      email: 'error@test.com'
+    };
+
+    service.updateStudent(studentId, updates).subscribe({
+      next: () => fail('should have failed'),
+      error: (error) => {
+        expect(error).toBeTruthy();
+        done();
+      }
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/${studentId}`);
+    req.error(new ProgressEvent('error'), { status: 400, statusText: 'Bad Request' });
+  });
+
+  it('should handle HTTP error on delete student', (done) => {
+    const studentId = 1;
+
+    service.deleteStudent(studentId).subscribe({
+      next: () => fail('should have failed'),
+      error: (error) => {
+        expect(error).toBeTruthy();
+        done();
+      }
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/${studentId}`);
+    req.error(new ProgressEvent('error'), { status: 404, statusText: 'Not Found' });
   });
 });

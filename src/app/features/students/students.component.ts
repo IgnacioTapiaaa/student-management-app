@@ -1,34 +1,60 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Store } from '@ngrx/store';
+import { Observable } from 'rxjs';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { StudentsService } from '../../core/services/students.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCardModule } from '@angular/material/card';
 import { Student } from '../../core/models/student.interface';
 import { FontSizeDirective } from '../../shared/directives/font-size.directive';
 import { ConfirmDialogComponent } from './confirm-dialog.component';
 import { StudentFormComponent, StudentFormData } from './components/student-form.component';
 import { StudentListComponent } from './components/student-list.component';
 import { StudentStatsComponent } from './components/student-stats.component';
+import * as StudentsActions from './store/students.actions';
+import * as StudentsSelectors from './store/students.selectors';
 
+/**
+ * Students Component
+ * Main container component for students management
+ * Uses NGRX Store for state management
+ */
 @Component({
   selector: 'app-students',
   standalone: true,
   imports: [
     CommonModule,
     MatDialogModule,
-    MatSnackBarModule,
+    MatProgressSpinnerModule,
+    MatCardModule,
     FontSizeDirective,
     StudentFormComponent,
     StudentListComponent,
     StudentStatsComponent
   ],
   templateUrl: './students.component.html',
-  styleUrls: ['./students.component.scss']
+  styleUrls: ['./students.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class StudentsComponent {
+export class StudentsComponent implements OnInit {
+  private store = inject(Store);
+  private dialog = inject(MatDialog);
+
+  // Local UI state
   isEditMode = signal<boolean>(false);
   editingStudent = signal<Student | null>(null);
 
+  // Store selectors - Observable streams
+  students$ = this.store.select(StudentsSelectors.selectAllStudents);
+  loading$ = this.store.select(StudentsSelectors.selectStudentsLoading);
+  error$ = this.store.select(StudentsSelectors.selectStudentsError);
+  totalStudents$ = this.store.select(StudentsSelectors.selectTotalStudents);
+  averageAge$ = this.store.select(StudentsSelectors.selectAverageAge);
+
+  // View model - combines multiple selectors
+  viewModel$ = this.store.select(StudentsSelectors.selectStudentsViewModel);
+
+  // Computed signals for form
   formTitle = computed(() =>
     this.isEditMode() ? 'Edit Student' : 'Add New Student'
   );
@@ -37,53 +63,24 @@ export class StudentsComponent {
     this.isEditMode() ? 'Update Student' : 'Save Student'
   );
 
-  constructor(
-    public studentsService: StudentsService,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar
-  ) {}
+  ngOnInit(): void {
+    // Dispatch action to load students
+    this.store.dispatch(StudentsActions.loadStudents());
+  }
 
   onStudentSubmit(formData: StudentFormData): void {
-    console.log('[StudentsComponent] onStudentSubmit called with:', formData);
-
     if (formData.editingId !== null) {
-      console.log('[StudentsComponent] Updating student with ID:', formData.editingId);
-      this.studentsService.updateStudent(
-        formData.editingId,
-        formData.data
-      ).subscribe({
-        next: (updatedStudent) => {
-          console.log('[StudentsComponent] Student updated:', updatedStudent);
-          this.snackBar.open('Student updated successfully', 'Close', {
-            duration: 3000
-          });
-          this.resetEditMode();
-        },
-        error: (error) => {
-          console.error('[StudentsComponent] Update error:', error);
-          this.snackBar.open('Failed to update student', 'Close', {
-            duration: 3000
-          });
-        }
-      });
+      this.store.dispatch(StudentsActions.updateStudent({
+        id: formData.editingId,
+        changes: formData.data
+      }));
     } else {
-      console.log('[StudentsComponent] Adding new student');
-      this.studentsService.addStudent(formData.data).subscribe({
-        next: (newStudent) => {
-          console.log('[StudentsComponent] New student created:', newStudent);
-          this.snackBar.open('Student added successfully', 'Close', {
-            duration: 3000
-          });
-          this.resetEditMode();
-        },
-        error: (error) => {
-          console.error('[StudentsComponent] Add error:', error);
-          this.snackBar.open('Failed to add student', 'Close', {
-            duration: 3000
-          });
-        }
-      });
+      this.store.dispatch(StudentsActions.addStudent({
+        student: formData.data
+      }));
     }
+
+    this.resetEditMode();
   }
 
   onFormCancel(): void {
@@ -93,6 +90,7 @@ export class StudentsComponent {
   onEditStudent(student: Student): void {
     this.isEditMode.set(true);
     this.editingStudent.set(student);
+    this.store.dispatch(StudentsActions.selectStudent({ id: student.id }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -107,23 +105,12 @@ export class StudentsComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        this.studentsService.deleteStudent(student.id).subscribe({
-          next: () => {
-            this.snackBar.open('Student deleted successfully', 'Close', {
-              duration: 3000
-            });
+        this.store.dispatch(StudentsActions.deleteStudent({ id: student.id }));
 
-            if (this.editingStudent()?.id === student.id) {
-              this.resetEditMode();
-            }
-          },
-          error: (error) => {
-            console.error('[StudentsComponent] Delete error:', error);
-            this.snackBar.open('Failed to delete student', 'Close', {
-              duration: 3000
-            });
-          }
-        });
+        // Reset edit mode if deleting the currently editing student
+        if (this.editingStudent()?.id === student.id) {
+          this.resetEditMode();
+        }
       }
     });
   }
@@ -131,5 +118,6 @@ export class StudentsComponent {
   private resetEditMode(): void {
     this.isEditMode.set(false);
     this.editingStudent.set(null);
+    this.store.dispatch(StudentsActions.clearSelected());
   }
 }

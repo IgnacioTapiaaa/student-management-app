@@ -1,4 +1,4 @@
-import { Component, OnInit, Output, EventEmitter, Input, effect } from '@angular/core';
+import { Component, OnInit, OnChanges, SimpleChanges, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -41,7 +41,7 @@ export interface CourseFormData {
   templateUrl: './course-form.component.html',
   styleUrls: ['./course-form.component.scss']
 })
-export class CourseFormComponent implements OnInit {
+export class CourseFormComponent implements OnInit, OnChanges {
   @Input() formTitle: string = 'Add New Course';
   @Input() submitButtonText: string = 'Save Course';
   @Input() courseToEdit: Course | null = null;
@@ -51,16 +51,25 @@ export class CourseFormComponent implements OnInit {
 
   courseForm!: FormGroup<CourseForm>;
 
-  constructor(private fb: FormBuilder) {
-    effect(() => {
-      if (this.courseToEdit) {
-        this.loadCourseData(this.courseToEdit);
-      }
-    });
-  }
+  constructor(private fb: FormBuilder) {}
 
   ngOnInit(): void {
     this.initializeForm();
+    // Load initial data if provided
+    if (this.courseToEdit) {
+      this.loadCourseData(this.courseToEdit);
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // React to changes in courseToEdit Input
+    if (changes['courseToEdit'] && !changes['courseToEdit'].firstChange) {
+      if (this.courseToEdit && this.courseForm) {
+        this.loadCourseData(this.courseToEdit);
+      } else if (!this.courseToEdit && this.courseForm) {
+        this.resetForm();
+      }
+    }
   }
 
   private initializeForm(): void {
@@ -133,30 +142,34 @@ export class CourseFormComponent implements OnInit {
   }
 
   private loadCourseData(course: Course): void {
+    // Convert dates to Date objects if they're strings
+    const startDate = course.startDate instanceof Date
+      ? course.startDate
+      : new Date(course.startDate);
+
+    const endDate = course.endDate instanceof Date
+      ? course.endDate
+      : new Date(course.endDate);
+
     this.courseForm.patchValue({
       name: course.name,
       code: course.code,
       instructor: course.instructor,
       duration: course.duration,
-      startDate: course.startDate,
-      endDate: course.endDate,
+      startDate: startDate,
+      endDate: endDate,
       capacity: course.capacity,
       enrolled: course.enrolled
     });
   }
 
   onSubmit(): void {
-    console.log('[CourseForm] onSubmit called');
-    console.log('[CourseForm] Form valid:', this.courseForm.valid);
-
     if (this.courseForm.invalid) {
-      console.log('[CourseForm] Form invalid, marking touched');
       this.courseForm.markAllAsTouched();
       return;
     }
 
     const formValue = this.courseForm.getRawValue();
-    console.log('[CourseForm] Form value:', formValue);
 
     const courseData: CreateCourse = {
       name: formValue.name,
@@ -168,17 +181,14 @@ export class CourseFormComponent implements OnInit {
       capacity: formValue.capacity ?? 0,
       enrolled: formValue.enrolled ?? 0
     };
-    console.log('[CourseForm] Course data:', courseData);
 
     const formData: CourseFormData = {
       data: courseData,
       editingId: this.courseToEdit?.id ?? null
     };
-    console.log('[CourseForm] Emitting form data:', formData);
 
     this.courseSubmit.emit(formData);
     this.resetForm();
-    console.log('[CourseForm] Form reset complete');
   }
 
   onCancel(): void {

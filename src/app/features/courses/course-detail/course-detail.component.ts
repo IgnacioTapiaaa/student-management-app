@@ -1,21 +1,31 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
+import { Store } from '@ngrx/store';
+import { Observable, combineLatest } from 'rxjs';
+import { switchMap, filter, tap, map, shareReplay } from 'rxjs/operators';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { CoursesService } from '../../../core/services/courses.service';
-import { InscriptionsService } from '../../../core/services/inscriptions.service';
-import { StudentsService } from '../../../core/services/students.service';
 import { Course } from '../../../core/models/course.interface';
-import { Inscription } from '../../../core/models/inscription.interface';
-import { Student } from '../../../core/models/student.interface';
 import { ConfirmDialogComponent } from '../../students/confirm-dialog.component';
+import { selectAllCourses } from '../store/courses.selectors';
+import { selectEnrichedInscriptions } from '../../inscriptions/store/inscriptions.selectors';
+import * as InscriptionsActions from '../../inscriptions/store/inscriptions.actions';
+import { loadStudents } from '../../students/store/students.actions';
+import { loadInscriptions } from '../../inscriptions/store/inscriptions.actions';
+import { loadCourses } from '../../courses/store/courses.actions';
 
+/**
+ * Course Detail Component
+ * Displays detailed information about a specific course and enrolled students
+ * Uses NGRX Router Store to get course ID from route params
+ */
 @Component({
   selector: 'app-course-detail',
   standalone: true,
@@ -26,6 +36,7 @@ import { ConfirmDialogComponent } from '../../students/confirm-dialog.component'
     MatIconModule,
     MatTableModule,
     MatChipsModule,
+    MatProgressSpinnerModule,
     MatSnackBarModule,
     MatDialogModule
   ],
@@ -33,79 +44,82 @@ import { ConfirmDialogComponent } from '../../students/confirm-dialog.component'
   styleUrls: ['./course-detail.component.scss']
 })
 export class CourseDetailComponent implements OnInit {
-  private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private coursesService = inject(CoursesService);
-  private inscriptionsService = inject(InscriptionsService);
-  private studentsService = inject(StudentsService);
-  private snackBar = inject(MatSnackBar);
+  private route = inject(ActivatedRoute);
+  private store = inject(Store);
   private dialog = inject(MatDialog);
 
-  courseId = signal<number | null>(null);
-  courses = this.coursesService.courses;
+  // Get course ID from route params
+  courseId$ = this.route.params.pipe(
+    map(params => params['id']),
+    filter(id => !isNaN(id)),
+    shareReplay(1)
+  );
 
-  course = computed(() => {
-    const id = this.courseId();
-    const courses = this.courses();
-    if (!id) return undefined;
-    return courses.find(c => c.id == id);
-  });
+  // Select course from store using combineLatest to wait for data
+  course$: Observable<Course | undefined> = combineLatest([
+    this.courseId$,
+    this.store.select(selectAllCourses)
+  ]).pipe(
+    map(([id, courses]) => courses.find(c => c.id === id)),
+    shareReplay(1)
+  );
 
-  enrolledStudents = computed(() => {
-    const id = this.courseId();
-    if (!id) return [];
-    const inscriptions = this.inscriptionsService.inscriptions().filter(i => i.courseId == id);
-    return inscriptions.map(inscription => {
-      const student = this.studentsService.students().find(s => s.id == inscription.studentId);
-      return { ...inscription, student };
-    });
-  });
+  // Select course inscriptions from store using combineLatest
+  inscriptions$ = combineLatest([
+    this.courseId$,
+    this.store.select(selectEnrichedInscriptions)
+  ]).pipe(
+    map(([id, inscriptions]) => inscriptions.filter(i => i.courseId === id))
+  );
 
   displayedColumns = ['studentName', 'studentEmail', 'enrollmentDate', 'status', 'actions'];
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe(params => {
-      const id = Number(params.get('id'));
-      if (!isNaN(id)) {
-        this.courseId.set(id);
-      } else {
-        this.router.navigate(['/courses']);
-      }
-    });
+    // CRÍTICO: Despachar acciones PRIMERO
+    this.store.dispatch(loadCourses());
+    this.store.dispatch(loadInscriptions());
+    this.store.dispatch(loadStudents());
+
+    // Obtener course desde route params
+    this.course$ = this.route.params.pipe(
+      map(params => params['id']),
+      switchMap(id =>
+        this.store.select(selectAllCourses).pipe(
+          map(courses => courses.find(c => c.id === id))
+        )
+      ),
+      filter(course => !!course),
+      shareReplay(1)
+    );
+
+    // Obtener inscriptions
+    this.inscriptions$ = this.route.params.pipe(
+      map(params => params['id']),
+      switchMap(id =>
+        this.store.select(selectEnrichedInscriptions).pipe(
+          map(inscriptions => inscriptions.filter(i => i.courseId === id))
+        )
+      )
+    );
   }
 
   goBack(): void {
     this.router.navigate(['/courses']);
   }
 
-  onUnenroll(inscription: Inscription & { student?: Student }): void {
+  onUnenroll(inscription: any): void {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       width: '400px',
       data: {
         title: 'Unenroll Student',
-        message: `Are you sure you want to unenroll ${inscription.student?.firstName} ${inscription.student?.lastName} from this course? This action cannot be undone.`
+        message: `Are you sure you want to unenroll ${inscription.studentName} from this course? This action cannot be undone.`
       }
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.inscriptionsService.deleteInscription(inscription.id).subscribe({
-          next: () => {
-            this.snackBar.open('Student unenrolled successfully!', 'Close', {
-              duration: 3000,
-              horizontalPosition: 'end',
-              verticalPosition: 'top'
-            });
-          },
-          error: (error) => {
-            console.error('[CourseDetailComponent] Unenroll error:', error);
-            this.snackBar.open('Failed to unenroll student', 'Close', {
-              duration: 3000,
-              horizontalPosition: 'end',
-              verticalPosition: 'top'
-            });
-          }
-        });
+      if (result === true) {
+        this.store.dispatch(InscriptionsActions.deleteInscription({ id: inscription.id }));
       }
     });
   }
@@ -123,17 +137,11 @@ export class CourseDetailComponent implements OnInit {
     }
   }
 
-  getStudentName(student?: Student): string {
-    if (!student) return 'N/A';
-    return `${student.firstName} ${student.lastName}`;
-  }
-
   formatDate(date: Date): string {
     return new Date(date).toLocaleDateString();
   }
 
-  getEnrollmentPercentage(): number {
-    const course = this.course();
+  getEnrollmentPercentage(course: Course | undefined): number {
     if (!course || course.capacity === 0) return 0;
     return (course.enrolled / course.capacity) * 100;
   }

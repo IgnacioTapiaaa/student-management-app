@@ -1,41 +1,39 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { Store } from '@ngrx/store';
+import { Observable } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { User, LoginCredentials } from '../models/user.interface';
+import { AppState } from '../../store/app.state';
+import * as AuthActions from '../../store/auth/auth.actions';
+import * as AuthSelectors from '../../store/auth/auth.selectors';
 
+/**
+ * Authentication Service
+ * Manages user authentication using NGRX Store
+ * Maintains backward compatibility with signal-based API for existing components
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly TOKEN_KEY = 'auth_token';
-  private readonly USER_KEY = 'current_user';
+  private store = inject(Store<AppState>);
+  private router = inject(Router);
 
-  // Hardcoded users for testing
-  private readonly MOCK_USERS: User[] = [
-    {
-      id: 1,
-      email: 'admin@test.com',
-      password: 'admin123',
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'admin'
-    },
-    {
-      id: 2,
-      email: 'user@test.com',
-      password: 'user123',
-      firstName: 'Regular',
-      lastName: 'User',
-      role: 'user'
-    }
-  ];
+  // NGRX Store Observables - Primary API for new components
+  public readonly currentUser$: Observable<User | null> = this.store.select(AuthSelectors.selectCurrentUser);
+  public readonly token$: Observable<string | null> = this.store.select(AuthSelectors.selectToken);
+  public readonly isAuthenticated$: Observable<boolean> = this.store.select(AuthSelectors.selectIsAuthenticated);
+  public readonly isAdmin$: Observable<boolean> = this.store.select(AuthSelectors.selectIsAdmin);
+  public readonly userFullName$: Observable<string> = this.store.select(AuthSelectors.selectUserFullName);
+  public readonly loading$: Observable<boolean> = this.store.select(AuthSelectors.selectAuthLoading);
+  public readonly error$: Observable<string | null> = this.store.select(AuthSelectors.selectAuthError);
 
-  // Signal for current user
-  private currentUserSignal = signal<User | null>(this.loadUserFromStorage());
+  // Signal-based API - Backward compatibility for existing components
+  // These signals are derived from store selectors
+  private currentUserSignal = toSignal(this.currentUser$, { initialValue: null });
 
-  // Public readonly signal
-  public readonly currentUser = this.currentUserSignal.asReadonly();
-
-  // Computed signals
+  public readonly currentUser = computed(() => this.currentUserSignal());
   public readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
   public readonly isAdmin = computed(() => this.currentUserSignal()?.role === 'admin');
   public readonly userFullName = computed(() => {
@@ -43,56 +41,49 @@ export class AuthService {
     return user ? `${user.firstName} ${user.lastName}` : '';
   });
 
-  constructor(private router: Router) {}
+  constructor() {
+    // Load user from storage on service initialization
+    this.store.dispatch(AuthActions.loadUserFromStorage());
+  }
 
   /**
    * Authenticate user with email and password
+   * Dispatches login action to NGRX store
    */
   login(credentials: LoginCredentials): { success: boolean; message: string } {
-    const user = this.MOCK_USERS.find(
-      u => u.email === credentials.email && u.password === credentials.password
-    );
+    // Dispatch login action to store
+    // The effect will handle the actual authentication logic
+    this.store.dispatch(AuthActions.login({ credentials }));
 
-    if (user) {
-      // Create a user object without password for storage
-      const { password, ...userWithoutPassword } = user;
-      const safeUser = { ...userWithoutPassword, password: '' };
-
-      // Generate mock token (in real app, this would come from backend)
-      const token = this.generateMockToken(user);
-
-      // Store in localStorage
-      localStorage.setItem(this.TOKEN_KEY, token);
-      localStorage.setItem(this.USER_KEY, JSON.stringify(safeUser));
-
-      // Update signal
-      this.currentUserSignal.set(safeUser as User);
-
-      return { success: true, message: 'Login successful' };
-    }
-
-    return { success: false, message: 'Invalid email or password' };
+    // Return a synchronous response for backward compatibility
+    // The actual result will be handled by the store
+    return {
+      success: true,
+      message: 'Login in progress...'
+    };
   }
 
   /**
    * Logout user and clear storage
+   * Dispatches logout action to NGRX store
    */
   logout(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.USER_KEY);
-    this.currentUserSignal.set(null);
-    this.router.navigate(['/login']);
+    // Dispatch logout action to store
+    // The effect will handle clearing localStorage and navigation
+    this.store.dispatch(AuthActions.logout());
   }
 
   /**
    * Get stored auth token
+   * For backward compatibility - reads directly from localStorage
    */
   getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
+    return localStorage.getItem('auth_token');
   }
 
   /**
    * Check if user is authenticated
+   * For backward compatibility
    */
   isAuthenticatedUser(): boolean {
     return this.isAuthenticated();
@@ -100,51 +91,23 @@ export class AuthService {
 
   /**
    * Check if current user has admin role
+   * For backward compatibility
    */
   hasAdminRole(): boolean {
     return this.isAdmin();
   }
 
   /**
-   * Load user from localStorage on service initialization
+   * Clear auth error from store
    */
-  private loadUserFromStorage(): User | null {
-    const userJson = localStorage.getItem(this.USER_KEY);
-    const token = localStorage.getItem(this.TOKEN_KEY);
-
-    if (userJson && token) {
-      try {
-        return JSON.parse(userJson) as User;
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        this.clearStorage();
-      }
-    }
-
-    return null;
+  clearError(): void {
+    this.store.dispatch(AuthActions.clearAuthError());
   }
 
   /**
-   * Clear all auth data from storage
+   * Manually trigger load user from storage
    */
-  private clearStorage(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.USER_KEY);
-  }
-
-  /**
-   * Generate mock JWT-like token (for demonstration purposes)
-   */
-  private generateMockToken(user: User): string {
-    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-    const payload = btoa(JSON.stringify({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      exp: Date.now() + 86400000 // 24 hours
-    }));
-    const signature = btoa(`mock-signature-${user.id}`);
-
-    return `${header}.${payload}.${signature}`;
+  loadUserFromStorage(): void {
+    this.store.dispatch(AuthActions.loadUserFromStorage());
   }
 }

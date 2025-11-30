@@ -13,7 +13,10 @@
         <!-- Student Selection -->
         <mat-form-field appearance="outline" class="form-field">
           <mat-label>Student</mat-label>
-          <mat-select formControlName="studentId" placeholder="Select a student">
+          <mat-select
+            formControlName="studentId"
+            placeholder="Select a student"
+            [compareWith]="compareIds">
             <mat-option *ngFor="let student of studentsService.students()" [value]="student.id">
               {{ student | fullName }} (ID: {{ student.id }})
             </mat-option>
@@ -28,7 +31,10 @@
         <!-- Course Selection -->
         <mat-form-field appearance="outline" class="form-field">
           <mat-label>Course</mat-label>
-          <mat-select formControlName="courseId" placeholder="Select a course">
+          <mat-select
+            formControlName="courseId"
+            placeholder="Select a course"
+            [compareWith]="compareIds">
             <mat-option *ngFor="let course of coursesService.courses()" [value]="course.id">
               {{ course.name }} ({{ course.code }})
             </mat-option>

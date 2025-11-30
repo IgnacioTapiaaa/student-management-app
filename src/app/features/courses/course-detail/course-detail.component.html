@@ -1,4 +1,4 @@
-<div class="course-detail-container" *ngIf="course(); else loadingOrNotFound">
+<div class="course-detail-container" *ngIf="course$ | async as course; else loadingOrNotFound">
   <!-- Header with Back Button -->
   <div class="header">
     <button mat-raised-button (click)="goBack()">
@@ -17,64 +17,64 @@
       <div class="info-grid">
         <div class="info-item">
           <span class="label">ID:</span>
-          <span class="value">{{ course()!.id }}</span>
+          <span class="value">{{ course.id }}</span>
         </div>
         <div class="info-item">
           <span class="label">Course Name:</span>
-          <span class="value">{{ course()!.name }}</span>
+          <span class="value">{{ course.name }}</span>
         </div>
         <div class="info-item">
           <span class="label">Course Code:</span>
-          <span class="value">{{ course()!.code }}</span>
+          <span class="value">{{ course.code }}</span>
         </div>
         <div class="info-item">
           <span class="label">Instructor:</span>
-          <span class="value">{{ course()!.instructor }}</span>
+          <span class="value">{{ course.instructor }}</span>
         </div>
         <div class="info-item">
           <span class="label">Duration:</span>
-          <span class="value">{{ course()!.duration }} hours</span>
+          <span class="value">{{ course.duration }} hours</span>
         </div>
         <div class="info-item">
           <span class="label">Start Date:</span>
-          <span class="value">{{ formatDate(course()!.startDate) }}</span>
+          <span class="value">{{ formatDate(course.startDate) }}</span>
         </div>
         <div class="info-item">
           <span class="label">End Date:</span>
-          <span class="value">{{ formatDate(course()!.endDate) }}</span>
+          <span class="value">{{ formatDate(course.endDate) }}</span>
         </div>
         <div class="info-item">
           <span class="label">Capacity:</span>
-          <span class="value">{{ course()!.enrolled }} / {{ course()!.capacity }} students</span>
+          <span class="value">{{ course.enrolled }} / {{ course.capacity }} students</span>
         </div>
         <div class="info-item full-width">
           <span class="label">Enrollment:</span>
           <div class="enrollment-bar">
-            <div class="progress-bar" [style.width.%]="getEnrollmentPercentage()"></div>
+            <div class="progress-bar" [style.width.%]="getEnrollmentPercentage(course)"></div>
           </div>
-          <span class="enrollment-percentage">{{ getEnrollmentPercentage().toFixed(0) }}% Full</span>
+          <span class="enrollment-percentage">{{ getEnrollmentPercentage(course).toFixed(0) }}% Full</span>
         </div>
       </div>
     </mat-card-content>
   </mat-card>
 
   <!-- Enrolled Students Section -->
-  <mat-card class="students-card">
+  <mat-card class="students-card" *ngIf="inscriptions$ | async as inscriptions">
     <mat-card-header>
       <mat-card-title>Enrolled Students</mat-card-title>
       <mat-card-subtitle>
-        {{ enrolledStudents().length }}
-        {{ enrolledStudents().length === 1 ? 'student' : 'students' }}
+        {{ inscriptions.length }}
+        {{ inscriptions.length === 1 ? 'student' : 'students' }}
       </mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
-      <div class="table-container" *ngIf="enrolledStudents().length > 0; else noStudents">
-        <table mat-table [dataSource]="enrolledStudents()" class="mat-elevation-z2">
+      <div class="table-container" *ngIf="inscriptions.length > 0; else noStudents">
+        <table mat-table [dataSource]="inscriptions" class="mat-elevation-z2">
           <!-- Student Name Column -->
           <ng-container matColumnDef="studentName">
             <th mat-header-cell *matHeaderCellDef>Student Name</th>
             <td mat-cell *matCellDef="let inscription">
-              {{ getStudentName(inscription.student) }}
+              {{ inscription.studentName || 'N/A' }}
             </td>
           </ng-container>
 
@@ -82,7 +82,7 @@
           <ng-container matColumnDef="studentEmail">
             <th mat-header-cell *matHeaderCellDef>Email</th>
             <td mat-cell *matCellDef="let inscription">
-              {{ inscription.student?.email || 'N/A' }}
+              {{ inscription.studentEmail || 'N/A' }}
             </td>
           </ng-container>
 
@@ -132,15 +132,9 @@
 
 <ng-template #loadingOrNotFound>
   <div class="loading-container">
-    <div *ngIf="courses().length === 0; else notFound" class="loading">
+    <div class="loading">
+      <mat-spinner></mat-spinner>
       <p>Loading course details...</p>
     </div>
-    <ng-template #notFound>
-      <div class="not-found">
-        <mat-icon>error_outline</mat-icon>
-        <p>Course not found.</p>
-        <button mat-button color="primary" (click)="goBack()">Back to Courses</button>
-      </div>
-    </ng-template>
   </div>
 </ng-template>

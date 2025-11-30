@@ -1,24 +1,34 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Store } from '@ngrx/store';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { InscriptionsService } from '../../core/services/inscriptions.service';
-import { StudentsService } from '../../core/services/students.service';
-import { CoursesService } from '../../core/services/courses.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCardModule } from '@angular/material/card';
 import { Inscription } from '../../core/models/inscription.interface';
 import { FontSizeDirective } from '../../shared/directives/font-size.directive';
 import { ConfirmDialogComponent } from '../students/confirm-dialog.component';
 import { InscriptionFormComponent, InscriptionFormData } from './components/inscription-form.component';
 import { InscriptionListComponent } from './components/inscription-list.component';
 import { InscriptionStatsComponent } from './components/inscription-stats.component';
+import * as InscriptionsActions from './store/inscriptions.actions';
+import * as InscriptionsSelectors from './store/inscriptions.selectors';
+import * as StudentsActions from '../students/store/students.actions';
+import * as CoursesActions from '../courses/store/courses.actions';
 
+/**
+ * Inscriptions Component
+ * Main container component for inscriptions management
+ * Uses NGRX Store for state management
+ */
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-inscriptions',
   standalone: true,
   imports: [
     CommonModule,
     MatDialogModule,
-    MatSnackBarModule,
+    MatProgressSpinnerModule,
+    MatCardModule,
     FontSizeDirective,
     InscriptionFormComponent,
     InscriptionListComponent,
@@ -27,10 +37,25 @@ import { InscriptionStatsComponent } from './components/inscription-stats.compon
   templateUrl: './inscriptions.component.html',
   styleUrls: ['./inscriptions.component.scss']
 })
-export class InscriptionsComponent {
+export class InscriptionsComponent implements OnInit {
+  private store = inject(Store);
+  private dialog = inject(MatDialog);
+
+  // Local UI state
   isEditMode = signal<boolean>(false);
   editingInscription = signal<Inscription | null>(null);
 
+  // Store selectors - Observable streams
+  inscriptions$ = this.store.select(InscriptionsSelectors.selectEnrichedInscriptions);
+  loading$ = this.store.select(InscriptionsSelectors.selectInscriptionsLoading);
+  error$ = this.store.select(InscriptionsSelectors.selectInscriptionsError);
+  totalInscriptions$ = this.store.select(InscriptionsSelectors.selectTotalInscriptions);
+  activeInscriptions$ = this.store.select(InscriptionsSelectors.selectTotalActiveInscriptions);
+
+  // View model - combines multiple selectors
+  viewModel$ = this.store.select(InscriptionsSelectors.selectInscriptionsViewModel);
+
+  // Computed signals for form
   formTitle = computed(() =>
     this.isEditMode() ? 'Edit Inscription' : 'Add New Inscription'
   );
@@ -39,55 +64,26 @@ export class InscriptionsComponent {
     this.isEditMode() ? 'Update Inscription' : 'Save Inscription'
   );
 
-  constructor(
-    public inscriptionsService: InscriptionsService,
-    public studentsService: StudentsService,
-    public coursesService: CoursesService,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar
-  ) {}
+  ngOnInit(): void {
+    // Dispatch actions to load all related data
+    this.store.dispatch(InscriptionsActions.loadInscriptions());
+    this.store.dispatch(StudentsActions.loadStudents());
+    this.store.dispatch(CoursesActions.loadCourses());
+  }
 
   onInscriptionSubmit(formData: InscriptionFormData): void {
-    console.log('[InscriptionsComponent] onInscriptionSubmit called with:', formData);
-
     if (formData.editingId !== null) {
-      console.log('[InscriptionsComponent] Updating inscription with ID:', formData.editingId);
-      this.inscriptionsService.updateInscription(
-        formData.editingId,
-        formData.data
-      ).subscribe({
-        next: (updatedInscription) => {
-          console.log('[InscriptionsComponent] Inscription updated:', updatedInscription);
-          this.snackBar.open('Inscription updated successfully', 'Close', {
-            duration: 3000
-          });
-          this.resetEditMode();
-        },
-        error: (error) => {
-          console.error('[InscriptionsComponent] Update error:', error);
-          this.snackBar.open('Failed to update inscription', 'Close', {
-            duration: 3000
-          });
-        }
-      });
+      this.store.dispatch(InscriptionsActions.updateInscription({
+        id: formData.editingId,
+        changes: formData.data
+      }));
     } else {
-      console.log('[InscriptionsComponent] Adding new inscription');
-      this.inscriptionsService.addInscription(formData.data).subscribe({
-        next: (newInscription) => {
-          console.log('[InscriptionsComponent] New inscription created:', newInscription);
-          this.snackBar.open('Inscription added successfully', 'Close', {
-            duration: 3000
-          });
-          this.resetEditMode();
-        },
-        error: (error) => {
-          console.error('[InscriptionsComponent] Add error:', error);
-          this.snackBar.open('Failed to add inscription. Please check course capacity and duplicate enrollments.', 'Close', {
-            duration: 5000
-          });
-        }
-      });
+      this.store.dispatch(InscriptionsActions.addInscription({
+        inscription: formData.data
+      }));
     }
+
+    this.resetEditMode();
   }
 
   onFormCancel(): void {
@@ -97,15 +93,14 @@ export class InscriptionsComponent {
   onEditInscription(inscription: Inscription): void {
     this.isEditMode.set(true);
     this.editingInscription.set(inscription);
+    this.store.dispatch(InscriptionsActions.selectInscription({ id: inscription.id }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   onDeleteInscription(inscription: Inscription): void {
-    const student = this.studentsService.getStudentById(inscription.studentId);
-    const course = this.coursesService.getCourseById(inscription.courseId);
-
-    const studentName = student ? `${student.firstName} ${student.lastName}` : 'Unknown Student';
-    const courseName = course ? course.name : 'Unknown Course';
+    const enrichedInscription = inscription as InscriptionsSelectors.EnrichedInscription;
+    const studentName = enrichedInscription.studentName || 'Unknown Student';
+    const courseName = enrichedInscription.courseName || 'Unknown Course';
 
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       width: '400px',
@@ -117,40 +112,24 @@ export class InscriptionsComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        this.inscriptionsService.deleteInscription(inscription.id).subscribe({
-          next: () => {
-            this.snackBar.open('Inscription deleted successfully', 'Close', {
-              duration: 3000
-            });
+        this.store.dispatch(InscriptionsActions.deleteInscription({ id: inscription.id }));
 
-            if (this.editingInscription()?.id === inscription.id) {
-              this.resetEditMode();
-            }
-          },
-          error: (error) => {
-            console.error('[InscriptionsComponent] Delete error:', error);
-            this.snackBar.open('Failed to delete inscription', 'Close', {
-              duration: 3000
-            });
-          }
-        });
+        // Reset edit mode if deleting the currently editing inscription
+        if (this.editingInscription()?.id === inscription.id) {
+          this.resetEditMode();
+        }
       }
     });
   }
 
   onCancelInscription(inscription: Inscription): void {
     if (inscription.status !== 'active') {
-      this.snackBar.open('Only active inscriptions can be cancelled', 'Close', {
-        duration: 3000
-      });
-      return;
+      return; // The effect will handle the error notification
     }
 
-    const student = this.studentsService.getStudentById(inscription.studentId);
-    const course = this.coursesService.getCourseById(inscription.courseId);
-
-    const studentName = student ? `${student.firstName} ${student.lastName}` : 'Unknown Student';
-    const courseName = course ? course.name : 'Unknown Course';
+    const enrichedInscription = inscription as InscriptionsSelectors.EnrichedInscription;
+    const studentName = enrichedInscription.studentName || 'Unknown Student';
+    const courseName = enrichedInscription.courseName || 'Unknown Course';
 
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       width: '400px',
@@ -162,23 +141,12 @@ export class InscriptionsComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        this.inscriptionsService.cancelInscription(inscription.id).subscribe({
-          next: () => {
-            this.snackBar.open('Inscription cancelled successfully', 'Close', {
-              duration: 3000
-            });
+        this.store.dispatch(InscriptionsActions.cancelInscription({ id: inscription.id }));
 
-            if (this.editingInscription()?.id === inscription.id) {
-              this.resetEditMode();
-            }
-          },
-          error: (error) => {
-            console.error('[InscriptionsComponent] Cancel error:', error);
-            this.snackBar.open('Failed to cancel inscription', 'Close', {
-              duration: 3000
-            });
-          }
-        });
+        // Reset edit mode if cancelling the currently editing inscription
+        if (this.editingInscription()?.id === inscription.id) {
+          this.resetEditMode();
+        }
       }
     });
   }
@@ -186,5 +154,6 @@ export class InscriptionsComponent {
   private resetEditMode(): void {
     this.isEditMode.set(false);
     this.editingInscription.set(null);
+    this.store.dispatch(InscriptionsActions.clearSelected());
   }
 }

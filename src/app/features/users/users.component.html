@@ -1,15 +1,26 @@
 <div class="users-container">
+  <!-- Page Header -->
   <div class="header">
     <h1>User Management</h1>
     <p class="subtitle">Manage system users and their roles</p>
   </div>
 
-  <!-- User Statistics -->
-  <app-user-stats
-    [totalUsers]="totalUsers()"
-    [adminUsers]="adminUsers()"
-    [regularUsers]="regularUsers()">
-  </app-user-stats>
+  <!-- Loading Indicator -->
+  @if (loading$ | async) {
+    <div class="loading-container">
+      <mat-spinner></mat-spinner>
+      <p>Loading users...</p>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (error$ | async; as error) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <p class="error-message">{{ error }}</p>
+      </mat-card-content>
+    </mat-card>
+  }
 
   <!-- User Form -->
   <app-user-form
@@ -20,9 +31,16 @@
     (formCancel)="onFormCancel()">
   </app-user-form>
 
+  <!-- User Statistics -->
+  <app-user-stats
+    [totalUsers]="(totalUsers$ | async) || 0"
+    [adminUsers]="(adminUsers$ | async) || 0"
+    [regularUsers]="(regularUsers$ | async) || 0">
+  </app-user-stats>
+
   <!-- User List -->
   <app-user-list
-    [users]="users()"
+    [users]="(users$ | async) || []"
     (editUser)="onEditUser($event)"
     (deleteUser)="onDeleteUser($event)">
   </app-user-list>

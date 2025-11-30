@@ -5,6 +5,23 @@
     <p class="page-subtitle">Manage courses, instructors, and schedules</p>
   </div>
 
+  <!-- Loading Indicator -->
+  @if (loading$ | async) {
+    <div class="loading-container">
+      <mat-spinner></mat-spinner>
+      <p>Loading courses...</p>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (error$ | async; as error) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <p class="error-message">{{ error }}</p>
+      </mat-card-content>
+    </mat-card>
+  }
+
   <!-- Course Form Component -->
   <app-course-form
     [formTitle]="formTitle()"
@@ -16,14 +33,14 @@
 
   <!-- Course Stats Component -->
   <app-course-stats
-    [totalCourses]="coursesService.totalCourses()"
-    [activeCourses]="coursesService.activeCourses()"
-    [averageEnrollment]="coursesService.averageEnrollment()">
+    [totalCourses]="(totalCourses$ | async) || 0"
+    [activeCourses]="0"
+    [averageEnrollment]="(averageEnrollment$ | async) || 0">
   </app-course-stats>
 
   <!-- Course List Component -->
   <app-course-list
-    [courses]="coursesService.courses()"
+    [courses]="(courses$ | async) || []"
     (editCourse)="onEditCourse($event)"
     (deleteCourse)="onDeleteCourse($event)">
   </app-course-list>

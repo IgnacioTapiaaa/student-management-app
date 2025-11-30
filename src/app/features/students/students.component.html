@@ -5,6 +5,23 @@
     <p class="page-subtitle">Add, edit, and manage students</p>
   </div>
 
+  <!-- Loading Indicator -->
+  @if (loading$ | async) {
+    <div class="loading-container">
+      <mat-spinner></mat-spinner>
+      <p>Loading students...</p>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (error$ | async; as error) {
+    <mat-card class="error-card">
+      <mat-card-content>
+        <p class="error-message">{{ error }}</p>
+      </mat-card-content>
+    </mat-card>
+  }
+
   <!-- Student Form Component -->
   <app-student-form
     [formTitle]="formTitle()"
@@ -16,13 +33,13 @@
 
   <!-- Student Stats Component -->
   <app-student-stats
-    [totalStudents]="studentsService.totalStudents()"
-    [averageAge]="studentsService.averageAge()">
+    [totalStudents]="(totalStudents$ | async) || 0"
+    [averageAge]="(averageAge$ | async) || 0">
   </app-student-stats>
 
   <!-- Student List Component -->
   <app-student-list
-    [students]="studentsService.students()"
+    [students]="(students$ | async) || []"
     (editStudent)="onEditStudent($event)"
     (deleteStudent)="onDeleteStudent($event)">
   </app-student-list>

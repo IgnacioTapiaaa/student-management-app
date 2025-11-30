@@ -12,13 +12,15 @@ export const routes: Routes = [
     path: 'login',
     loadComponent: () =>
       import('./features/auth/login/login.component').then(m => m.LoginComponent),
-    title: 'Login - Student Management System'
+    title: 'Login - Student Management System',
+    data: { title: 'Login' }
   },
   {
     path: 'students',
     loadComponent: () =>
       import('./features/students/students.component').then(m => m.StudentsComponent),
     title: 'Students - Student Management System',
+    data: { title: 'Students Management' },
     canActivate: [authGuard]
   },
   {
@@ -26,6 +28,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/students/student-detail/student-detail.component').then(m => m.StudentDetailComponent),
     title: 'Student Details - Student Management System',
+    data: { title: 'Student Detail' },
     canActivate: [authGuard]
   },
   {
@@ -33,6 +36,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/courses/courses.component').then(m => m.CoursesComponent),
     title: 'Courses - Student Management System',
+    data: { title: 'Courses Management' },
     canActivate: [authGuard]
   },
   {
@@ -40,6 +44,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/courses/course-detail/course-detail.component').then(m => m.CourseDetailComponent),
     title: 'Course Details - Student Management System',
+    data: { title: 'Course Detail' },
     canActivate: [authGuard]
   },
   {
@@ -47,6 +52,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/inscriptions/inscriptions.component').then(m => m.InscriptionsComponent),
     title: 'Inscriptions - Student Management System',
+    data: { title: 'Inscriptions Management' },
     canActivate: [authGuard]
   },
   {
@@ -54,6 +60,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/users/users.component').then(m => m.UsersComponent),
     title: 'Users - Student Management System',
+    data: { title: 'Users Management' },
     canActivate: [authGuard, adminGuard]
   },
   {

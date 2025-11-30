@@ -1,22 +1,32 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Store } from '@ngrx/store';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { CoursesService } from '../../core/services/courses.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCardModule } from '@angular/material/card';
 import { Course } from '../../core/models/course.interface';
 import { FontSizeDirective } from '../../shared/directives/font-size.directive';
 import { ConfirmDialogComponent } from '../students/confirm-dialog.component';
 import { CourseFormComponent, CourseFormData } from './components/course-form.component';
 import { CourseListComponent } from './components/course-list.component';
 import { CourseStatsComponent } from './components/course-stats.component';
+import * as CoursesActions from './store/courses.actions';
+import * as CoursesSelectors from './store/courses.selectors';
 
+/**
+ * Courses Component
+ * Main container component for courses management
+ * Uses NGRX Store for state management
+ */
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-courses',
   standalone: true,
   imports: [
     CommonModule,
     MatDialogModule,
-    MatSnackBarModule,
+    MatProgressSpinnerModule,
+    MatCardModule,
     FontSizeDirective,
     CourseFormComponent,
     CourseListComponent,
@@ -25,10 +35,25 @@ import { CourseStatsComponent } from './components/course-stats.component';
   templateUrl: './courses.component.html',
   styleUrls: ['./courses.component.scss']
 })
-export class CoursesComponent {
+export class CoursesComponent implements OnInit {
+  private store = inject(Store);
+  private dialog = inject(MatDialog);
+
+  // Local UI state
   isEditMode = signal<boolean>(false);
   editingCourse = signal<Course | null>(null);
 
+  // Store selectors - Observable streams
+  courses$ = this.store.select(CoursesSelectors.selectAllCourses);
+  loading$ = this.store.select(CoursesSelectors.selectCoursesLoading);
+  error$ = this.store.select(CoursesSelectors.selectCoursesError);
+  totalCourses$ = this.store.select(CoursesSelectors.selectTotalCourses);
+  averageEnrollment$ = this.store.select(CoursesSelectors.selectAverageEnrollment);
+
+  // View model - combines multiple selectors
+  viewModel$ = this.store.select(CoursesSelectors.selectCoursesViewModel);
+
+  // Computed signals for form
   formTitle = computed(() =>
     this.isEditMode() ? 'Edit Course' : 'Add New Course'
   );
@@ -37,53 +62,24 @@ export class CoursesComponent {
     this.isEditMode() ? 'Update Course' : 'Save Course'
   );
 
-  constructor(
-    public coursesService: CoursesService,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar
-  ) {}
+  ngOnInit(): void {
+    // Dispatch action to load courses
+    this.store.dispatch(CoursesActions.loadCourses());
+  }
 
   onCourseSubmit(formData: CourseFormData): void {
-    console.log('[CoursesComponent] onCourseSubmit called with:', formData);
-
     if (formData.editingId !== null) {
-      console.log('[CoursesComponent] Updating course with ID:', formData.editingId);
-      this.coursesService.updateCourse(
-        formData.editingId,
-        formData.data
-      ).subscribe({
-        next: (updatedCourse) => {
-          console.log('[CoursesComponent] Course updated:', updatedCourse);
-          this.snackBar.open('Course updated successfully', 'Close', {
-            duration: 3000
-          });
-          this.resetEditMode();
-        },
-        error: (error) => {
-          console.error('[CoursesComponent] Update error:', error);
-          this.snackBar.open('Failed to update course', 'Close', {
-            duration: 3000
-          });
-        }
-      });
+      this.store.dispatch(CoursesActions.updateCourse({
+        id: formData.editingId,
+        changes: formData.data
+      }));
     } else {
-      console.log('[CoursesComponent] Adding new course');
-      this.coursesService.addCourse(formData.data).subscribe({
-        next: (newCourse) => {
-          console.log('[CoursesComponent] New course created:', newCourse);
-          this.snackBar.open('Course added successfully', 'Close', {
-            duration: 3000
-          });
-          this.resetEditMode();
-        },
-        error: (error) => {
-          console.error('[CoursesComponent] Add error:', error);
-          this.snackBar.open('Failed to add course', 'Close', {
-            duration: 3000
-          });
-        }
-      });
+      this.store.dispatch(CoursesActions.addCourse({
+        course: formData.data
+      }));
     }
+
+    this.resetEditMode();
   }
 
   onFormCancel(): void {
@@ -93,6 +89,7 @@ export class CoursesComponent {
   onEditCourse(course: Course): void {
     this.isEditMode.set(true);
     this.editingCourse.set(course);
+    this.store.dispatch(CoursesActions.selectCourse({ id: course.id }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -107,23 +104,12 @@ export class CoursesComponent {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === true) {
-        this.coursesService.deleteCourse(course.id).subscribe({
-          next: () => {
-            this.snackBar.open('Course deleted successfully', 'Close', {
-              duration: 3000
-            });
+        this.store.dispatch(CoursesActions.deleteCourse({ id: course.id }));
 
-            if (this.editingCourse()?.id === course.id) {
-              this.resetEditMode();
-            }
-          },
-          error: (error) => {
-            console.error('[CoursesComponent] Delete error:', error);
-            this.snackBar.open('Failed to delete course', 'Close', {
-              duration: 3000
-            });
-          }
-        });
+        // Reset edit mode if deleting the currently editing course
+        if (this.editingCourse()?.id === course.id) {
+          this.resetEditMode();
+        }
       }
     });
   }
@@ -131,5 +117,6 @@ export class CoursesComponent {
   private resetEditMode(): void {
     this.isEditMode.set(false);
     this.editingCourse.set(null);
+    this.store.dispatch(CoursesActions.clearSelected());
   }
 }

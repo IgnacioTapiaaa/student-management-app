@@ -1,24 +1,34 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Store } from '@ngrx/store';
 import { Observable, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Course, CreateCourse, UpdateCourse } from '../models/course.interface';
-import { environment } from '../../../environments/environment.development';
+import { environment } from '../../../environments/environment';
+import * as CoursesSelectors from '../../features/courses/store/courses.selectors';
 
+/**
+ * Courses Service
+ * Handles HTTP operations for courses
+ * Provides backward compatibility with signal-based API via NGRX Store
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class CoursesService {
   private http = inject(HttpClient);
+  private store = inject(Store);
   private apiUrl = `${environment.apiUrl}/courses`;
 
-  // Writable signal for manual updates after mutations
-  private coursesWritableSignal = signal<Course[]>([]);
+  // Store Observables
+  private courses$ = this.store.select(CoursesSelectors.selectAllCourses);
+  private totalCourses$ = this.store.select(CoursesSelectors.selectTotalCourses);
+  private averageEnrollment$ = this.store.select(CoursesSelectors.selectAverageEnrollment);
 
-  // Public readonly signal
-  public readonly courses = computed(() => this.coursesWritableSignal());
-
-  // Computed signals for stats
+  // Backward compatibility - Signal-based API
+  private coursesSignal = toSignal(this.courses$, { initialValue: [] });
+  public readonly courses = computed(() => this.coursesSignal());
   public readonly totalCourses = computed(() => this.courses().length);
 
   public readonly activeCourses = computed(() =>
@@ -39,47 +49,20 @@ export class CoursesService {
     return Math.round(total / coursesList.length);
   });
 
-  constructor() {
-    // Load initial data
-    this.loadCourses();
-  }
-
   /**
-   * Load all courses from API
+   * Get all courses from API
    */
-  private loadCourses(): void {
-    this.http.get<Course[]>(this.apiUrl).pipe(
+  getAll(): Observable<Course[]> {
+    return this.http.get<Course[]>(this.apiUrl).pipe(
       catchError(this.handleError)
-    ).subscribe({
-      next: (courses) => {
-        this.coursesWritableSignal.set(courses);
-      },
-      error: (error) => {
-        console.error('Error loading courses:', error);
-        this.coursesWritableSignal.set([]);
-      }
-    });
-  }
-
-  /**
-   * Refresh courses data from API
-   */
-  refreshCourses(): void {
-    this.loadCourses();
+    );
   }
 
   /**
    * Add a new course via API
    */
   addCourse(course: CreateCourse): Observable<Course> {
-    console.log('[CoursesService] addCourse called with:', course);
-
     return this.http.post<Course>(this.apiUrl, course).pipe(
-      tap(newCourse => {
-        console.log('[CoursesService] Course created:', newCourse);
-        // Update local signal
-        this.coursesWritableSignal.update(courses => [...courses, newCourse]);
-      }),
       catchError(this.handleError)
     );
   }
@@ -88,19 +71,8 @@ export class CoursesService {
    * Update an existing course via API
    */
   updateCourse(id: number, changes: UpdateCourse): Observable<Course> {
-    console.log('[CoursesService] updateCourse called with ID:', id, 'Changes:', changes);
-
     const url = `${this.apiUrl}/${id}`;
     return this.http.put<Course>(url, changes).pipe(
-      tap(updatedCourse => {
-        console.log('[CoursesService] Course updated:', updatedCourse);
-        // Update local signal
-        this.coursesWritableSignal.update(courses =>
-          courses.map(course =>
-            course.id === id ? { ...course, ...updatedCourse } : course
-          )
-        );
-      }),
       catchError(this.handleError)
     );
   }
@@ -109,17 +81,8 @@ export class CoursesService {
    * Delete a course via API
    */
   deleteCourse(id: number): Observable<void> {
-    console.log('[CoursesService] deleteCourse called with ID:', id);
-
     const url = `${this.apiUrl}/${id}`;
     return this.http.delete<void>(url).pipe(
-      tap(() => {
-        console.log('[CoursesService] Course deleted');
-        // Update local signal
-        this.coursesWritableSignal.update(courses =>
-          courses.filter(course => course.id !== id)
-        );
-      }),
       catchError(this.handleError)
     );
   }
@@ -166,33 +129,13 @@ export class CoursesService {
   }
 
   /**
-   * Increment enrollment count
+   * Get a course by ID from API
    */
-  incrementEnrollment(courseId: number): Observable<Course> {
-    const course = this.getCourseById(courseId);
-
-    if (!course || course.enrolled >= course.capacity) {
-      return throwError(() => new Error('Cannot enroll: course is full or not found'));
-    }
-
-    return this.updateCourse(courseId, {
-      enrolled: course.enrolled + 1
-    });
-  }
-
-  /**
-   * Decrement enrollment count
-   */
-  decrementEnrollment(courseId: number): Observable<Course> {
-    const course = this.getCourseById(courseId);
-
-    if (!course || course.enrolled <= 0) {
-      return throwError(() => new Error('Cannot decrement: enrollment is already 0 or course not found'));
-    }
-
-    return this.updateCourse(courseId, {
-      enrolled: course.enrolled - 1
-    });
+  getById(id: number): Observable<Course> {
+    const url = `${this.apiUrl}/${id}`;
+    return this.http.get<Course>(url).pipe(
+      catchError(this.handleError)
+    );
   }
 
   /**
@@ -209,7 +152,6 @@ export class CoursesService {
       errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
     }
 
-    console.error('[CoursesService] HTTP Error:', errorMessage);
     return throwError(() => new Error(errorMessage));
   }
 }

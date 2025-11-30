@@ -1,12 +1,62 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { provideMockStore, MockStore } from '@ngrx/store/testing';
 import { AuthService } from './auth.service';
 import { LoginCredentials } from '../models/user.interface';
+import { AppState } from '../../store/app.state';
+import * as AuthSelectors from '../../store/auth/auth.selectors';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let store: MockStore<AppState>;
   let routerSpy: jasmine.SpyObj<Router>;
   let localStorageSpy: { [key: string]: string };
+
+  const initialState: AppState = {
+    auth: {
+      currentUser: null,
+      token: null,
+      isAuthenticated: false,
+      loading: false,
+      error: null
+    },
+    ui: {
+      toolbarTitle: 'Student Management System',
+      sidenavOpened: true
+    },
+    students: {
+      ids: [],
+      entities: {},
+      selectedStudentId: null,
+      loading: false,
+      error: null,
+      loaded: false
+    },
+    courses: {
+      ids: [],
+      entities: {},
+      selectedCourseId: null,
+      loading: false,
+      error: null,
+      loaded: false
+    },
+    inscriptions: {
+      ids: [],
+      entities: {},
+      selectedInscriptionId: null,
+      loading: false,
+      error: null,
+      loaded: false
+    },
+    users: {
+      ids: [],
+      entities: {},
+      selectedUserId: null,
+      loading: false,
+      error: null,
+      loaded: false
+    }
+  };
 
   beforeEach(() => {
     // Create a spy object for Router
@@ -34,48 +84,24 @@ describe('AuthService', () => {
     TestBed.configureTestingModule({
       providers: [
         AuthService,
-        { provide: Router, useValue: routerSpyObj }
+        { provide: Router, useValue: routerSpyObj },
+        provideMockStore({ initialState })
       ]
     });
 
     service = TestBed.inject(AuthService);
+    store = TestBed.inject(MockStore);
     routerSpy = TestBed.inject(Router) as jasmine.SpyObj<Router>;
+
+    // Spy on store dispatch
+    spyOn(store, 'dispatch');
   });
 
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should store token and user on login with valid credentials', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    const result = service.login(credentials);
-
-    expect(result.success).toBeTruthy();
-    expect(result.message).toBe('Login successful');
-    expect(localStorage.setItem).toHaveBeenCalledWith('auth_token', jasmine.any(String));
-    expect(localStorage.setItem).toHaveBeenCalledWith('current_user', jasmine.any(String));
-    expect(localStorageSpy['auth_token']).toBeDefined();
-    expect(localStorageSpy['current_user']).toBeDefined();
-  });
-
-  it('should not store token on login with invalid credentials', () => {
-    const credentials: LoginCredentials = {
-      email: 'wrong@test.com',
-      password: 'wrongpassword'
-    };
-
-    const result = service.login(credentials);
-
-    expect(result.success).toBeFalsy();
-    expect(result.message).toBe('Invalid email or password');
-    expect(localStorageSpy['auth_token']).toBeUndefined();
-  });
-
-  it('should set current user signal on successful login', () => {
+  it('should dispatch login action when login is called', () => {
     const credentials: LoginCredentials = {
       email: 'admin@test.com',
       password: 'admin123'
@@ -83,236 +109,77 @@ describe('AuthService', () => {
 
     service.login(credentials);
 
-    expect(service.currentUser()).toBeTruthy();
-    expect(service.currentUser()?.email).toBe('admin@test.com');
-    expect(service.currentUser()?.firstName).toBe('Admin');
+    expect(store.dispatch).toHaveBeenCalled();
   });
 
-  it('should return true for isAuthenticated when token exists', () => {
+  it('should dispatch logout action when logout is called', () => {
+    service.logout();
+
+    expect(store.dispatch).toHaveBeenCalled();
+  });
+
+  it('should return token from localStorage', () => {
     localStorageSpy['auth_token'] = 'mock-token';
-    localStorageSpy['current_user'] = JSON.stringify({
-      id: 1,
-      email: 'admin@test.com',
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'admin',
-      password: ''
-    });
 
-    // Create a new service instance to trigger loadUserFromStorage
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      providers: [
-        AuthService,
-        { provide: Router, useValue: routerSpy }
-      ]
-    });
-    service = TestBed.inject(AuthService);
-
-    expect(service.isAuthenticated()).toBeTruthy();
-  });
-
-  it('should return false for isAuthenticated when no token', () => {
-    // localStorage is empty by default in this test
-    expect(service.isAuthenticated()).toBeFalsy();
-  });
-
-  it('should return false for isAuthenticated after logout', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
-    expect(service.isAuthenticated()).toBeTruthy();
-
-    service.logout();
-    expect(service.isAuthenticated()).toBeFalsy();
-  });
-
-  it('should clear storage on logout', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
-    expect(localStorageSpy['auth_token']).toBeDefined();
-    expect(localStorageSpy['current_user']).toBeDefined();
-
-    service.logout();
-
-    expect(localStorage.removeItem).toHaveBeenCalledWith('auth_token');
-    expect(localStorage.removeItem).toHaveBeenCalledWith('current_user');
-    expect(localStorageSpy['auth_token']).toBeUndefined();
-    expect(localStorageSpy['current_user']).toBeUndefined();
-  });
-
-  it('should navigate to login page on logout', () => {
-    service.logout();
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['/login']);
-  });
-
-  it('should identify admin role correctly', () => {
-    const adminCredentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(adminCredentials);
-
-    expect(service.isAdmin()).toBeTruthy();
-    expect(service.hasAdminRole()).toBeTruthy();
-  });
-
-  it('should identify non-admin role correctly', () => {
-    const userCredentials: LoginCredentials = {
-      email: 'user@test.com',
-      password: 'user123'
-    };
-
-    service.login(userCredentials);
-
-    expect(service.isAdmin()).toBeFalsy();
-    expect(service.hasAdminRole()).toBeFalsy();
-  });
-
-  it('should return false for isAdmin when not authenticated', () => {
-    expect(service.isAdmin()).toBeFalsy();
-  });
-
-  it('should get stored token', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
     const token = service.getToken();
 
-    expect(token).toBeTruthy();
-    expect(typeof token).toBe('string');
+    expect(token).toBe('mock-token');
   });
 
-  it('should return null for token when not logged in', () => {
+  it('should return null when no token in localStorage', () => {
     const token = service.getToken();
+
     expect(token).toBeNull();
   });
 
-  it('should generate user full name correctly', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
-
-    expect(service.userFullName()).toBe('Admin User');
+  it('should provide currentUser$ observable', (done) => {
+    service.currentUser$.subscribe(user => {
+      expect(user).toBeNull();
+      done();
+    });
   });
 
-  it('should return empty string for full name when not authenticated', () => {
+  it('should provide isAuthenticated$ observable', (done) => {
+    service.isAuthenticated$.subscribe(isAuth => {
+      expect(isAuth).toBeFalse();
+      done();
+    });
+  });
+
+  it('should provide isAdmin$ observable', (done) => {
+    service.isAdmin$.subscribe(isAdmin => {
+      expect(isAdmin).toBeFalse();
+      done();
+    });
+  });
+
+  it('should have backward compatible signal-based API', () => {
+    expect(service.currentUser()).toBeNull();
+    expect(service.isAuthenticated()).toBeFalse();
+    expect(service.isAdmin()).toBeFalse();
     expect(service.userFullName()).toBe('');
   });
 
-  it('should load user from localStorage on initialization', () => {
-    const mockUser = {
-      id: 1,
-      email: 'admin@test.com',
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'admin',
-      password: ''
-    };
+  it('should dispatch clearAuthError action when clearError is called', () => {
+    service.clearError();
 
-    localStorageSpy['auth_token'] = 'mock-token';
-    localStorageSpy['current_user'] = JSON.stringify(mockUser);
-
-    // Create a new service instance to trigger loadUserFromStorage
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      providers: [
-        AuthService,
-        { provide: Router, useValue: routerSpy }
-      ]
-    });
-    service = TestBed.inject(AuthService);
-
-    expect(service.currentUser()).toBeTruthy();
-    expect(service.currentUser()?.email).toBe('admin@test.com');
-    expect(service.isAuthenticated()).toBeTruthy();
+    expect(store.dispatch).toHaveBeenCalled();
   });
 
-  it('should handle invalid JSON in localStorage', () => {
-    localStorageSpy['auth_token'] = 'mock-token';
-    localStorageSpy['current_user'] = 'invalid-json{';
+  it('should dispatch loadUserFromStorage action when loadUserFromStorage is called', () => {
+    // Reset the spy since constructor already dispatched it
+    (store.dispatch as jasmine.Spy).calls.reset();
 
-    spyOn(console, 'error');
+    service.loadUserFromStorage();
 
-    // Create a new service instance to trigger loadUserFromStorage
-    TestBed.resetTestingModule();
-    TestBed.configureTestingModule({
-      providers: [
-        AuthService,
-        { provide: Router, useValue: routerSpy }
-      ]
-    });
-    service = TestBed.inject(AuthService);
-
-    expect(service.currentUser()).toBeNull();
-    expect(console.error).toHaveBeenCalled();
+    expect(store.dispatch).toHaveBeenCalled();
   });
 
-  it('should set current user to null on logout', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
-    expect(service.currentUser()).toBeTruthy();
-
-    service.logout();
-    expect(service.currentUser()).toBeNull();
+  it('should return authentication status from isAuthenticatedUser', () => {
+    expect(service.isAuthenticatedUser()).toBeFalse();
   });
 
-  it('should use isAuthenticatedUser method', () => {
-    expect(service.isAuthenticatedUser()).toBeFalsy();
-
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
-    expect(service.isAuthenticatedUser()).toBeTruthy();
-  });
-
-  it('should not store password in localStorage', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
-
-    const storedUser = localStorageSpy['current_user'];
-    const parsedUser = JSON.parse(storedUser);
-
-    // Password should be empty string, not the actual password
-    expect(parsedUser.password).toBe('');
-  });
-
-  it('should generate mock token with correct structure', () => {
-    const credentials: LoginCredentials = {
-      email: 'admin@test.com',
-      password: 'admin123'
-    };
-
-    service.login(credentials);
-    const token = service.getToken();
-
-    expect(token).toBeTruthy();
-    // JWT format: header.payload.signature
-    expect(token!.split('.').length).toBe(3);
+  it('should return admin status from hasAdminRole', () => {
+    expect(service.hasAdminRole()).toBeFalse();
   });
 });

@@ -1,73 +1,65 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Store } from '@ngrx/store';
 import { Observable, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { User, CreateUser, UserRole } from '../models/user.interface';
-import { environment } from '../../../environments/environment.development';
+import { environment } from '../../../environments/environment';
+import * as UsersSelectors from '../../features/users/store/users.selectors';
 
+/**
+ * Users Service
+ * Handles HTTP operations for users
+ * Provides backward compatibility with signal-based API via NGRX Store
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class UsersService {
   private http = inject(HttpClient);
+  private store = inject(Store);
   private apiUrl = `${environment.apiUrl}/users`;
 
-  // Writable signal for manual updates after mutations
-  private usersWritableSignal = signal<User[]>([]);
+  // Store Observables
+  private users$ = this.store.select(UsersSelectors.selectAllUsers);
+  private admins$ = this.store.select(UsersSelectors.selectAdmins);
+  private regularUsers$ = this.store.select(UsersSelectors.selectRegularUsers);
 
-  // Public readonly signal
-  public readonly users = computed(() => this.usersWritableSignal());
+  // Backward compatibility - Signal-based API
+  private usersSignal = toSignal(this.users$, { initialValue: [] });
+  private adminsSignal = toSignal(this.admins$, { initialValue: [] });
+  private regularUsersSignal = toSignal(this.regularUsers$, { initialValue: [] });
 
-  // Computed signals for stats
+  public readonly users = computed(() => this.usersSignal());
   public readonly totalUsers = computed(() => this.users().length);
-  public readonly adminUsers = computed(() =>
-    this.users().filter(u => u.role === 'admin').length
-  );
-  public readonly regularUsers = computed(() =>
-    this.users().filter(u => u.role === 'user').length
-  );
-
-  constructor() {
-    // Load initial data
-    this.loadUsers();
-  }
+  public readonly adminUsers = computed(() => this.adminsSignal().length);
+  public readonly regularUsers = computed(() => this.regularUsersSignal().length);
 
   /**
-   * Load all users from API
+   * Get all users from API
    */
-  private loadUsers(): void {
-    this.http.get<User[]>(this.apiUrl).pipe(
+  getAll(): Observable<User[]> {
+    return this.http.get<User[]>(this.apiUrl).pipe(
       catchError(this.handleError)
-    ).subscribe({
-      next: (users) => {
-        this.usersWritableSignal.set(users);
-      },
-      error: (error) => {
-        console.error('Error loading users:', error);
-        this.usersWritableSignal.set([]);
-      }
-    });
+    );
   }
 
   /**
-   * Refresh users data from API
+   * Get a user by ID from API
    */
-  refreshUsers(): void {
-    this.loadUsers();
+  getById(id: number): Observable<User> {
+    const url = `${this.apiUrl}/${id}`;
+    return this.http.get<User>(url).pipe(
+      catchError(this.handleError)
+    );
   }
 
   /**
    * Add a new user via API
    */
   addUser(user: CreateUser): Observable<User> {
-    console.log('[UsersService] addUser called with:', user);
-
     return this.http.post<User>(this.apiUrl, user).pipe(
-      tap(newUser => {
-        console.log('[UsersService] User created:', newUser);
-        // Update local signal
-        this.usersWritableSignal.update(users => [...users, newUser]);
-      }),
       catchError(this.handleError)
     );
   }
@@ -76,19 +68,8 @@ export class UsersService {
    * Update an existing user via API
    */
   updateUser(id: number, changes: Partial<CreateUser>): Observable<User> {
-    console.log('[UsersService] updateUser called with ID:', id, 'Changes:', changes);
-
     const url = `${this.apiUrl}/${id}`;
     return this.http.put<User>(url, changes).pipe(
-      tap(updatedUser => {
-        console.log('[UsersService] User updated:', updatedUser);
-        // Update local signal
-        this.usersWritableSignal.update(users =>
-          users.map(user =>
-            user.id === id ? { ...user, ...updatedUser } : user
-          )
-        );
-      }),
       catchError(this.handleError)
     );
   }
@@ -97,23 +78,15 @@ export class UsersService {
    * Delete a user via API
    */
   deleteUser(id: number): Observable<void> {
-    console.log('[UsersService] deleteUser called with ID:', id);
-
     const url = `${this.apiUrl}/${id}`;
     return this.http.delete<void>(url).pipe(
-      tap(() => {
-        console.log('[UsersService] User deleted');
-        // Update local signal
-        this.usersWritableSignal.update(users =>
-          users.filter(user => user.id !== id)
-        );
-      }),
       catchError(this.handleError)
     );
   }
 
   /**
    * Get a user by ID (from local signal)
+   * For backward compatibility
    */
   getUserById(id: number): User | undefined {
     return this.users().find(user => user.id === id);
@@ -121,6 +94,7 @@ export class UsersService {
 
   /**
    * Search users by email or name (from local signal)
+   * For backward compatibility
    */
   searchUsers(searchTerm: string): User[] {
     if (!searchTerm.trim()) {
@@ -137,6 +111,7 @@ export class UsersService {
 
   /**
    * Get users by role (from local signal)
+   * For backward compatibility
    */
   getUsersByRole(role: UserRole): User[] {
     return this.users().filter(user => user.role === role);
@@ -144,6 +119,7 @@ export class UsersService {
 
   /**
    * Check if email already exists (for validation, from local signal)
+   * For backward compatibility
    */
   emailExists(email: string, excludeId?: number): boolean {
     return this.users().some(user =>
@@ -166,7 +142,6 @@ export class UsersService {
       errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
     }
 
-    console.error('[UsersService] HTTP Error:', errorMessage);
     return throwError(() => new Error(errorMessage));
   }
 }

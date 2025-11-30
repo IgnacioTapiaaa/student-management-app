@@ -1,12 +1,30 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { provideMockStore } from '@ngrx/store/testing';
 import { AppComponent } from './app.component';
 
 describe('AppComponent', () => {
+  const initialState = {
+    auth: {
+      currentUser: null,
+      token: null,
+      isAuthenticated: false,
+      loading: false,
+      error: null
+    },
+    ui: {
+      toolbarTitle: 'Student Management System',
+      sidenavOpened: true
+    }
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
-      providers: [provideRouter([])]
+      providers: [
+        provideRouter([]),
+        provideMockStore({ initialState })
+      ]
     }).compileComponents();
   });
 
